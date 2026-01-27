@@ -1,0 +1,78 @@
+name: Create Tag
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  Tag:
+    name: Tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write # needed to trigger the publish workflow via gh
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Read version from pom.xml
+        id: ver
+        run: |
+          VER="$(mvn -q -DforceStdout help:evaluate -Dexpression=project.version)"
+          echo "POM_VERSION=$VER" >> $GITHUB_ENV
+
+          # Skip tagging snapshots
+          if echo "$VER" | grep -q "SNAPSHOT"; then
+            echo "Snapshot version ($VER) detected; skipping tagging."
+            echo "SKIP_TAG=true" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          echo "VERSION=v$VER" >> $GITHUB_ENV
+
+      - name: Setup GIT (optional signed tags)
+        if: env.SKIP_TAG != 'true'
+        uses: rebelmediausa/gitconfig@v1
+        with:
+          git_user_name: RebelBot
+          git_user_email: bot@rebelmedia.io
+          git_gpg_key: ${{ secrets.GPG_KEY }}
+          git_gpg_key_id: ${{ secrets.GPG_KEY_ID }}
+
+      - name: Create Tag
+        if: env.SKIP_TAG != 'true'
+        run: |
+          # avoid failing if rerun
+          if git rev-parse "${VERSION}" >/dev/null 2>&1; then
+            echo "Tag ${VERSION} already exists; nothing to do."
+            exit 0
+          fi
+
+          # signed tag if GPG is configured; otherwise fallback to lightweight/annotated
+          if [ -n "${{ secrets.GPG_KEY_ID }}" ]; then
+            git tag -s "${VERSION}" -m "Release ${POM_VERSION}"
+          else
+            git tag -a "${VERSION}" -m "Release ${POM_VERSION}"
+          fi
+
+          git push origin "${VERSION}"
+
+      - name: Run Publish workflow
+        if: env.SKIP_TAG != 'true'
+        env:
+          # Use BOT_TOKEN if you want; otherwise GITHUB_TOKEN works if perms allow.
+          GITHUB_TOKEN: ${{ secrets.BOT_TOKEN || github.token }}
+        run: |
+          gh workflow run publish.yml --ref "${VERSION}"
