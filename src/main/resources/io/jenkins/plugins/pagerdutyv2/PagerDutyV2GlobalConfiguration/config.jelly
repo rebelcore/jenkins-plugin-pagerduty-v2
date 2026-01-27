@@ -1,0 +1,23 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+  <f:section title="PagerDuty v2">
+    <f:entry title="Disable PagerDuty notifications" field="disabled">
+      <f:checkbox />
+    </f:entry>
+    <f:entry title="Require Tags in job configuration" field="requireTags">
+      <f:checkbox />
+    </f:entry>
+    <f:entry title="Events API v2 endpoint" field="endpointUrl">
+      <f:textbox default="https://events.pagerduty.com/v2/enqueue"/>
+    </f:entry>
+    <f:entry title="Routing key credential (Secret Text)" field="routingKeyCredentialId">
+      <f:select />
+    </f:entry>
+    <f:entry title="Sandbox routing key credential (Secret Text; optional)" field="sandboxRoutingKeyCredentialId">
+      <f:select />
+    </f:entry>
+    <f:entry title="Service list (optional; one per line or comma-separated)" field="serviceChoicesRaw">
+      <f:textarea />
+    </f:entry>
+  </f:section>
+</j:jelly>

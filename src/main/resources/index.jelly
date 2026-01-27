@@ -1,0 +1,4 @@
+<?jelly escape-by-default='true'?>
+<div>
+  This plugin provides integration to PagerDuty AIOps <a href="https://support.pagerduty.com/main/docs/event-orchestration" target="_blank">Event Orchestration</a>.
+</div>

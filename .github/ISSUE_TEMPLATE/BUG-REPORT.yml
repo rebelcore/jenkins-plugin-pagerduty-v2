@@ -1,0 +1,95 @@
+name: Bug Report
+description: Report a problem with the PagerDuty v2 Jenkins plugin.
+title: "[BUG]: "
+labels: ["bug"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue.
+        Please include as much detail as possible so we can reproduce and fix it.
+
+  - type: input
+    id: plugin_version
+    attributes:
+      label: Plugin version
+      description: The PagerDuty v2 plugin version you are running.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: jenkins_version
+    attributes:
+      label: Jenkins version
+      description: Your Jenkins controller version.
+      placeholder: "2.441.3 (LTS)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: job_type
+    attributes:
+      label: Job type
+      multiple: false
+      options:
+        - Freestyle / Classic (Notifier)
+        - Pipeline
+        - Other / Mixed
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened?
+      description: What did you see? Please include relevant context.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant configuration
+      description: |
+        Include any relevant Jenkins job configuration (Pipeline snippet or notifier settings) and the plugin system configuration.
+        Please redact secrets (routing keys, tokens, URLs if sensitive).
+      render: yaml
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Paste relevant Jenkins logs (controller logs and/or job console output).
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else that might help (plugins, reverse proxy, TLS, PagerDuty Event Orchestration setup, etc.).
+    validations:
+      required: false

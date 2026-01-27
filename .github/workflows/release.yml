@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  tag_build_release:
+    name: Tag, build, and publish GitHub Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (full history for tags)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Resolve version from pom.xml
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(mvn -q -DforceStdout help:evaluate -Dexpression=project.version)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION" == *"-SNAPSHOT" ]]; then
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "Version is a SNAPSHOT ($VERSION). Skipping release."
+          else
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and push tag if needed
+        id: tag
+        if: steps.version.outputs.is_release == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="v${{ steps.version.outputs.version }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "refs/tags/$TAG"; then
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "Tag $TAG already exists. Skipping release."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build plugin
+        if: steps.tag.outputs.should_release == 'true'
+        run: mvn -B -ntp clean package
+
+      - name: Collect artifacts
+        if: steps.tag.outputs.should_release == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          shopt -s nullglob
+          files=(target/*.hpi target/*.jpi)
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No .hpi/.jpi artifacts found in target/. Build likely failed."
+            exit 1
+          fi
+          cp -v "${files[@]}" dist/
+          (cd dist && sha256sum * > checksums.sha256)
+
+      - name: Create GitHub Release
+        if: steps.tag.outputs.should_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            dist/*.hpi
+            dist/*.jpi
+            dist/checksums.sha256
