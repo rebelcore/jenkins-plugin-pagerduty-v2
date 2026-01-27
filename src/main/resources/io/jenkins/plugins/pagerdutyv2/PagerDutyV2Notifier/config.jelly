@@ -1,0 +1,79 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+
+  <j:if test="${descriptor.hasSandboxRoutingKeyConfigured()}">
+    <f:entry title="Sandbox Mode" field="sandboxMode">
+      <f:checkbox />
+    </f:entry>
+  </j:if>
+
+  <f:entry title="Service" field="service" required="true">
+    <j:choose>
+      <j:when test="${descriptor.hasServiceChoices()}">
+        <f:select />
+      </j:when>
+      <j:otherwise>
+        <f:textbox />
+      </j:otherwise>
+    </j:choose>
+  </f:entry>
+
+  <f:optionalBlock name="useCustomSummary"
+                   title="Use custom summary"
+                   checked="${instance.useCustomSummary}">
+    <f:entry title="Summary" field="customSummary">
+      <f:textbox />
+      <f:description>
+        If blank, the default generated summary is used.
+      </f:description>
+    </f:entry>
+  </f:optionalBlock>
+
+  <f:entry title="Tags (comma-separated)" field="tags" required="${descriptor.tagsRequired}">
+    <f:textbox />
+  </f:entry>
+
+  <f:entry title="Severity (used for trigger events)" field="severityOnFailure">
+    <f:select>
+      <f:option value="critical">critical</f:option>
+      <f:option value="error">error</f:option>
+      <f:option value="warning">warning</f:option>
+      <f:option value="info">info</f:option>
+    </f:select>
+  </f:entry>
+
+  <f:optionalBlock name="includeConsoleLogTail" title="Include console log tail in trigger events" checked="${instance.includeConsoleLogTail}">
+    <f:entry title="Lines to include" field="consoleLogTailLines">
+      <f:number min="1" default="200" />
+    </f:entry>
+    <f:description>
+      Adds the last N lines of the build console output to the PagerDuty trigger payload (custom_details.console_log_tail).
+      The text is truncated to avoid exceeding payload size limits.
+    </f:description>
+  </f:optionalBlock>
+
+  <f:entry title="Consecutive builds before trigger" field="consecutiveBuildsBeforeTrigger">
+    <f:number default="1" min="1" />
+  </f:entry>
+
+  <f:entry title="Trigger incident on SUCCESS" field="triggerOnSuccess">
+    <f:checkbox />
+  </f:entry>
+  <f:entry title="Trigger incident on FAILURE" field="triggerOnFailure">
+    <f:checkbox default="true" />
+  </f:entry>
+  <f:entry title="Trigger incident on UNSTABLE" field="triggerOnUnstable">
+    <f:checkbox />
+  </f:entry>
+  <f:entry title="Trigger incident on ABORTED" field="triggerOnAbort">
+    <f:checkbox />
+  </f:entry>
+  <f:entry title="Trigger incident on NOT_BUILT" field="triggerOnNotBuilt">
+    <f:checkbox />
+  </f:entry>
+
+  <f:entry title="Resolve when back to normal (SUCCESS)" field="resolveOnBackToNormal">
+    <f:checkbox default="true" />
+  </f:entry>
+
+</j:jelly>
