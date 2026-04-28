@@ -1,38 +1,32 @@
 package io.jenkins.plugins.pagerdutyv2;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.EnvVars;
-import hudson.util.ListBoxModel;
 import hudson.Extension;
 import hudson.Launcher;
-import hudson.model.Result;
+import hudson.model.Descriptor;
+import hudson.model.Item;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Notifier;
 import hudson.tasks.Publisher;
-import hudson.util.Secret;
-import jenkins.tasks.SimpleBuildStep;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.DataBoundSetter;
-import org.jenkinsci.Symbol;
-
-import java.io.IOException;
-import java.util.Map;
-import java.util.List;
-
-import hudson.model.Item;
 import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
+import jenkins.tasks.SimpleBuildStep;
+import net.sf.json.JSONObject;
+import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.AncestorInPath;
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.StaplerRequest2;
 import org.kohsuke.stapler.interceptor.RequirePOST;
 
-import hudson.model.Descriptor;
-import net.sf.json.JSONObject;
-import org.kohsuke.stapler.StaplerRequest2;
+import java.io.IOException;
+import java.util.List;
 
 /**
  * Freestyle/classic post-build notifier that:
@@ -41,8 +35,6 @@ import org.kohsuke.stapler.StaplerRequest2;
  *  - reuses trigger payload on resolve by replaying stored JSON
  */
 public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
-
-    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private String severityOnFailure = "error";
 
@@ -203,7 +195,7 @@ public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
         this.customSummary = customSummary;
     }
 
-	@DataBoundSetter
+    @DataBoundSetter
     public void setResolveOnBackToNormal(boolean resolveOnBackToNormal) {
         this.resolveOnBackToNormal = resolveOnBackToNormal;
     }
@@ -214,189 +206,7 @@ public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
                         @NonNull EnvVars env,
                         @NonNull Launcher launcher,
                         @NonNull TaskListener listener) throws InterruptedException, IOException {
-
-        Result result = run.getResult();
-        if (result == null) {
-            return;
-        }
-
-        PagerDutyV2GlobalConfiguration cfg = PagerDutyV2GlobalConfiguration.get();
-        if (cfg.isDisabled()) {
-            listener.getLogger().println("[pagerduty-v2] PagerDuty is disabled in system configuration; skipping.");
-            return;
-        }
-
-        if (getService().isBlank()) {
-            listener.getLogger().println("[pagerduty-v2] Service is required; skipping PagerDuty notification.");
-            return;
-        }
-
-        Secret rkSecret = null;
-        if (isSandboxMode()) {
-            Secret sandbox = cfg.resolveSandboxRoutingKey();
-            if (sandbox != null) {
-                rkSecret = sandbox;
-                listener.getLogger().println("[pagerduty-v2] Sandbox mode enabled; using sandbox routing key.");
-            } else {
-                listener.getLogger().println("[pagerduty-v2] Sandbox mode enabled but no sandbox routing key configured; falling back to primary routing key.");
-            }
-        }
-        if (rkSecret == null) {
-            rkSecret = cfg.resolveRoutingKey();
-        }
-        if (rkSecret == null) {
-            listener.getLogger().println("[pagerduty-v2] No routing key credential configured; skipping.");
-            return;
-        }
-
-        String routingKey = rkSecret.getPlainText();
-        String endpoint = cfg.getEndpointUrl();
-
-        PagerDutyV2Client client = new PagerDutyV2Client(endpoint);
-
-        boolean shouldTrigger = shouldTriggerFor(result);
-
-        PagerDutyV2RunAction openAction = findMostRecentOpenAction(run);
-
-        if (shouldTrigger) {
-            int streak = consecutiveTriggerStreak(run);
-            int threshold = Math.max(1, consecutiveBuildsBeforeTrigger);
-
-            if (streak < threshold) {
-                listener.getLogger().println("[pagerduty-v2] Trigger condition met but streak "
-                        + streak + "/" + threshold + " not reached; not triggering yet.");
-                return;
-            }
-
-            if (openAction == null) {
-                String dedupKey = PayloadBuilder.dedupKey(env);
-                Map<String, Object> payload = PayloadBuilder.buildPayload(env, severityOnFailure);
-                if (isUseCustomSummary()) {
-                    String s = getCustomSummary().trim();
-                    if (!s.isEmpty()) {
-                        payload.put("summary", s);
-                    }
-                }
-
-                payload.put("component", getService().trim());
-
-                Object cd = payload.get("custom_details");
-                if (cd instanceof Map) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> details = (Map<String, Object>) cd;
-
-                    if (!getTags().trim().isEmpty()) {
-                        details.put("tags", getTags().trim());
-                    }
-                    details.put("service", getService().trim());
-                    details.put("result", result.toString());
-                    details.put("consecutive_streak", streak);
-
-                    if (isIncludeConsoleLogTail() && !Result.SUCCESS.equals(result)) {
-                        String logTail = getConsoleLogTail(run, getConsoleLogTailLines(), 4000);
-                        if (!logTail.isEmpty()) {
-                            details.put("console_log_tail", logTail);
-                        }
-                    }
-                }
-
-                Map<String, Object> body = PayloadBuilder.buildBody(routingKey, "trigger", dedupKey, payload);
-
-                String json = MAPPER.writeValueAsString(body);
-                client.postEvent(body);
-
-                run.addAction(new PagerDutyV2RunAction(dedupKey, json));
-                run.save();
-
-                listener.getLogger().println("[pagerduty-v2] Trigger sent (dedup_key=" + dedupKey + ")");
-            } else {
-                listener.getLogger().println("[pagerduty-v2] Open incident already exists (dedup_key="
-                        + openAction.getDedupKey() + "); not triggering again.");
-            }
-            return;
-        }
-
-        if (resolveOnBackToNormal && openAction != null && result.equals(Result.SUCCESS)) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> triggerBody = MAPPER.readValue(openAction.getTriggerBodyJson(), Map.class);
-            triggerBody.put("event_action", "resolve");
-            client.postEvent(triggerBody);
-            openAction.markResolved();
-            Run<?, ?> owner = openAction.getOwner();
-            if (owner != null) {
-                owner.save();
-            } else {
-                run.save();
-            }
-            listener.getLogger().println("[pagerduty-v2] Resolve sent (dedup_key=" + openAction.getDedupKey() + ")");
-        }
-    }
-
-    /**
-     * Best-effort console log tail capture. Returns up to {@code maxChars} characters from the end of the log.
-     * This helps get "what failed" into PagerDuty without exceeding event size limits.
-     */
-    private static @NonNull String getConsoleLogTail(@NonNull Run<?, ?> run, int maxLines, int maxChars) {
-        if (maxLines <= 0 || maxChars <= 0) {
-            return "";
-        }
-        try {
-            List<String> lines = run.getLog(Math.max(1, maxLines));
-            String joined = String.join("\n", lines);
-            if (joined.length() <= maxChars) {
-                return joined;
-            }
-            return joined.substring(joined.length() - maxChars);
-        } catch (IOException e) {
-            return "";
-        } catch (RuntimeException e) {
-            return "";
-        }
-    }
-
-    private boolean shouldTriggerFor(@NonNull Result result) {
-        if (result.equals(Result.SUCCESS)) {
-            return triggerOnSuccess;
-        }
-        if (result.equals(Result.FAILURE)) {
-            return triggerOnFailure;
-        }
-        if (result.equals(Result.UNSTABLE)) {
-            return triggerOnUnstable;
-        }
-        if (result.equals(Result.ABORTED)) {
-            return triggerOnAbort;
-        }
-        if (result.equals(Result.NOT_BUILT)) {
-            return triggerOnNotBuilt;
-        }
-        return false;
-    }
-
-    private int consecutiveTriggerStreak(@NonNull Run<?, ?> run) {
-        int count = 0;
-        for (Run<?, ?> r = run; r != null; r = r.getPreviousBuild()) {
-            Result res = r.getResult();
-            if (res == null) {
-                break;
-            }
-            if (shouldTriggerFor(res)) {
-                count++;
-            } else {
-                break;
-            }
-        }
-        return count;
-    }
-
-    private @CheckForNull PagerDutyV2RunAction findMostRecentOpenAction(@NonNull Run<?, ?> run) {
-        for (Run<?, ?> r = run; r != null; r = r.getPreviousBuild()) {
-            PagerDutyV2RunAction a = r.getAction(PagerDutyV2RunAction.class);
-            if (a != null && a.isOpen()) {
-                return a;
-            }
-        }
-        return null;
+        PagerDutyV2Dispatcher.dispatch(run, env, new PagerDutyV2Dispatcher.Config(this), listener);
     }
 
     @Extension

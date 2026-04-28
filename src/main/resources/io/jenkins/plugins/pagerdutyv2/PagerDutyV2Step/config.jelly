@@ -1,12 +1,9 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
   <f:entry title="Action" field="action">
-    <f:select>
-      <f:option value="trigger">trigger</f:option>
-      <f:option value="resolve">resolve</f:option>
-    </f:select>
+    <f:select />
   </f:entry>
   <f:entry title="Severity (trigger only)" field="severity">
-    <f:textbox default="critical"/>
+    <f:select />
   </f:entry>
 </j:jelly>

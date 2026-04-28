@@ -14,8 +14,8 @@ import java.security.NoSuchAlgorithmException;
  */
 public class PayloadBuilder {
     /**
-     * Build a stable dedup_key.
-     * Default behavior: JOB_NAME:BRANCH_NAME if available, else JOB_NAME.
+     * Build a stable dedup_key as a SHA-256 hex digest of {@code JOB_NAME#BUILD_NUMBER}.
+     * Stable for the lifetime of a single build; reproducible for tests.
      */
     public static @NonNull String dedupKey(@NonNull EnvVars env) {
         String job = env.get("JOB_NAME", "unknown-job");
