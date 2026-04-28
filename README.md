@@ -208,6 +208,12 @@ If an open incident already exists and a trigger condition happens again, the pl
 
 - `[pagerduty-v2] Open incident already exists ...; not triggering again.`
 
+### Agent-disconnect resilience (freestyle)
+
+When an agent disconnects mid-build, Jenkins may not be able to run the post-build publisher (it requires a live workspace). To avoid silently losing alerts in that case, a controller-side `RunListener` fires after every freestyle build's final state is recorded and dispatches the same trigger/resolve logic if the publisher didn't run. The two paths coordinate through a transient `PagerDutyV2HandledAction` marker so a single build never produces two events.
+
+This applies to freestyle / matrix jobs only. Pipeline authors who need disconnect resilience should wrap their build in `catchError` or use `post { failure { pagerDutyV2(action: 'trigger') } }`, since the pipeline step is opt-in by design.
+
 ---
 
 ## Pipeline usage
@@ -322,6 +328,8 @@ The body is constructed in `PayloadBuilder.buildBody(...)`:
       "service": "svc-a",
       "result": "FAILURE",
       "consecutive_streak": 2,
+      "executor_disconnected": true,
+      "failure_reason": "executor_disconnected",
       "console_log_tail": ".... (optional)"
     }
   }
@@ -332,6 +340,7 @@ Notes:
 
 - `payload.component` is set from the job’s **Service** value (Freestyle notifier).
 - `custom_details.git_url` and `custom_details.git_branch` are included only if the environment variables exist.
+- `custom_details.executor_disconnected` and `custom_details.failure_reason=executor_disconnected` are included when remoting disconnect signatures are detected in recent build log lines.
 - `console_log_tail` is only included when enabled and the build is not `SUCCESS`.
 
 ---
