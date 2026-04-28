@@ -3,17 +3,20 @@ name: CI
 on:
   pull_request:
     branches:
-      - '!main'
-      - '!master'
-      - 'develop'
-      
+      - develop
+
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     name: Build & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -26,5 +29,5 @@ jobs:
           java-version: "17"
           cache: maven
 
-      - name: Build
+      - name: Build & verify
         run: mvn -B -ntp verify
