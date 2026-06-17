@@ -130,9 +130,7 @@ public class PagerDutyV2Client {
 
     private static String bodySnippet(Response resp) {
         try {
-            okhttp3.ResponseBody rb = resp.body();
-            if (rb == null) return "";
-            String s = rb.string();
+            String s = resp.body().string();
             return s.length() > 500 ? s.substring(0, 500) + "..." : s;
         } catch (IOException e) {
             return "";
