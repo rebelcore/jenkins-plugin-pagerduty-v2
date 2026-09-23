@@ -30,6 +30,13 @@ MVN_FLAGS := -B -ntp -Drevision=$(VERSION) "-Djava.range=$(JAVA_RANGE)"
 # so dependencies are downloaded once.
 DOCKER_IMAGE ?= maven:3-eclipse-temurin-25
 
+# The development Jenkins' home for `make run`, passed explicitly because
+# hpi:run would otherwise prefer an exported $JENKINS_HOME over ./work, and
+# `make seed-job` writes here. RUN_FLAGS adds options to hpi:run only, e.g.
+# `make run RUN_FLAGS=-Dhost=172.17.0.1` on Linux (see docker-compose.yml).
+DEV_HOME  ?= $(CURDIR)/work
+RUN_FLAGS ?=
+
 .DEFAULT_GOAL := help
 
 .PHONY: help
@@ -74,7 +81,33 @@ fmt: ## Format the Java sources with palantir-java-format
 
 .PHONY: run
 run: ## Start a Jenkins at http://localhost:8080/jenkins with the plugin loaded
-	$(MVNW) $(MVN_FLAGS) hpi:run
+	$(MVNW) $(MVN_FLAGS) -DjenkinsHome="$(DEV_HOME)" $(RUN_FLAGS) hpi:run
+
+# An inbound agent in Docker, attached to the `make run` Jenkins, for testing
+# what the plugin does when an agent disconnects mid-build. The agent's secret
+# is read from .env, which git ignores; see CONTRIBUTING.md.
+.PHONY: seed-job
+seed-job: ## Copy the disconnect-test node and job from dev/ into the `make run` Jenkins
+	mkdir -p "$(DEV_HOME)/nodes/disconnect-test" "$(DEV_HOME)/jobs/disconnect-test"
+	cp dev/nodes/disconnect-test/config.xml "$(DEV_HOME)/nodes/disconnect-test/config.xml"
+	cp dev/jobs/disconnect-test/config.xml "$(DEV_HOME)/jobs/disconnect-test/config.xml"
+	@echo ">> seeded $(DEV_HOME); start (or restart) \`make run\` to load them"
+
+.PHONY: agent-up
+agent-up: ## Start the inbound agent container (needs JENKINS_SECRET in .env)
+	docker compose up -d agent
+
+.PHONY: agent-kill
+agent-kill: ## Kill the agent abruptly, to simulate a disconnect mid-build
+	docker compose kill agent
+
+.PHONY: agent-logs
+agent-logs: ## Follow the agent's logs
+	docker compose logs -f agent
+
+.PHONY: agent-down
+agent-down: ## Remove the agent container and delete its work volume
+	docker compose down -v
 
 # What the release attaches, built the way the release builds it.
 .PHONY: dist

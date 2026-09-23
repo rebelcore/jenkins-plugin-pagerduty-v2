@@ -77,6 +77,23 @@ PagerDuty account is needed. `make run` starts a development Jenkins at
 <http://localhost:8080/jenkins> with the plugin loaded, for trying a change by
 hand.
 
+### Trying an agent disconnect by hand
+
+The fallback that alerts when a freestyle build's agent disconnects can be
+exercised against that development Jenkins with a real inbound agent in
+Docker:
+
+1. `make seed-job`, then `make run`. This adds an inbound node and a
+   50-second freestyle job, both called `disconnect-test`.
+2. Copy the node's secret from
+   <http://localhost:8080/jenkins/computer/disconnect-test/> into a `.env`
+   file as `JENKINS_SECRET=...` (git ignores `.env`), then `make agent-up`.
+3. Set a routing key under **Manage Jenkins → System → PagerDuty v2**, start
+   the job, and run `make agent-kill` while it is running.
+
+Events go to real PagerDuty, so use a test service's integration key.
+`make agent-down` removes the agent and its work volume.
+
 ## Conventions
 
 These are the ones that get broken by accident.

@@ -1,0 +1,48 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description>Long-running freestyle job pinned to the inbound docker agent. Use to test PagerDutyV2RunListener fallback when the agent disconnects mid-build.</description>
+  <keepDependencies>false</keepDependencies>
+  <properties/>
+  <scm class="hudson.scm.NullSCM"/>
+  <assignedNode>disconnect-test</assignedNode>
+  <canRoam>false</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>echo &quot;Build $BUILD_NUMBER on $NODE_NAME starting&quot;
+echo &quot;PID on agent: $$&quot;
+for i in $(seq 1 50); do
+  echo &quot;tick $i / 50&quot;
+  sleep 1
+done
+echo &quot;Build $BUILD_NUMBER finished cleanly&quot;
+</command>
+      <configuredLocalRules/>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers>
+    <io.jenkins.plugins.pagerdutyv2.PagerDutyV2Notifier>
+      <severityOnFailure>error</severityOnFailure>
+      <service>Infrastructure Services</service>
+      <tags></tags>
+      <sandboxMode>false</sandboxMode>
+      <consecutiveBuildsBeforeTrigger>1</consecutiveBuildsBeforeTrigger>
+      <triggerOnSuccess>false</triggerOnSuccess>
+      <triggerOnFailure>true</triggerOnFailure>
+      <triggerOnUnstable>false</triggerOnUnstable>
+      <triggerOnAbort>false</triggerOnAbort>
+      <triggerOnNotBuilt>false</triggerOnNotBuilt>
+      <resolveOnBackToNormal>true</resolveOnBackToNormal>
+      <includeConsoleLogTail>false</includeConsoleLogTail>
+      <consoleLogTailLines>200</consoleLogTailLines>
+      <useCustomSummary>false</useCustomSummary>
+      <customSummary></customSummary>
+    </io.jenkins.plugins.pagerdutyv2.PagerDutyV2Notifier>
+  </publishers>
+  <buildWrappers/>
+</project>
