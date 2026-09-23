@@ -27,11 +27,11 @@
 
   <dependencyManagement>
     <dependencies>
-      <!-- Plugin BOM: manages plugin dependency versions tested together -->
+      <!-- Plugin BOM: manages plugin dependency versions tested together; line must match jenkins.version -->
       <dependency>
         <groupId>io.jenkins.tools.bom</groupId>
-        <artifactId>bom-2.528.x</artifactId>
-        <version>6619.v0c570e671b_52</version>
+        <artifactId>bom-2.541.x</artifactId>
+        <version>7002.v028a_3607ddc8</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
