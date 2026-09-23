@@ -1,14 +1,59 @@
+# Pinning by commit SHA and exact version makes builds reproducible and
+# auditable, but it also freezes them. Dependabot is the other half of that
+# trade: it raises a pull request when any pinned reference moves, so the pins
+# stay current.
+#
+# Everything targets develop explicitly, so a dependency PR can never land
+# straight on master, which only ever receives merges from develop.
+#
+# One moment each week rather than a trickle: all ecosystems open together on a
+# Monday morning, so reviewing dependencies is one task on one day.
 version: 2
 
 updates:
-  - package-ecosystem: "maven"
-    directory: "/"
+  # Minor and patch bumps batched into one PR; majors get their own, because a
+  # major can change an interface and deserves to be read rather than skimmed.
+  # This covers pom.xml (plugins, dependencies, the BOM and the parent POM) and
+  # the Maven version in .mvn/wrapper/maven-wrapper.properties.
+  - package-ecosystem: maven
+    directory: /
+    target-branch: develop
     schedule:
-      interval: "weekly"
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/New_York
     open-pull-requests-limit: 10
+    # The Jenkins baseline (jenkins.version) is a support decision, not a
+    # dependency update: it decides which Jenkins installations can run the
+    # plugin. It moves by hand, together with the bom-<line>.x artifactId.
+    ignore:
+      - dependency-name: "org.jenkins-ci.main:jenkins-core"
+    groups:
+      maven-minor-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    # Supply-chain buffer: don't adopt a release in its first week, so yanked or
+    # compromised releases have time to surface. Security updates are exempt.
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: deps
 
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
     schedule:
-      interval: "weekly"
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/New_York
     open-pull-requests-limit: 10
+    groups:
+      actions-minor-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci

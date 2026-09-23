@@ -1,0 +1,94 @@
+---
+# Creates the release tag when develop is merged into master.
+#
+# The release process is:
+#   1. On a feature branch, bump VERSION and add `## <VERSION> / <date>` to
+#      CHANGELOG.md. Merge to develop.
+#   2. Open a pull request develop -> master. test.yml checks the changelog.
+#   3. Merge. This workflow reads VERSION, checks the changelog again, and pushes
+#      a signed tag v<VERSION>. The tag starts release.yml.
+#
+# Nobody types `git tag` by hand, so the tag, VERSION and the changelog can never
+# disagree about what a version contains. Merging to master without bumping
+# VERSION is a no-op: the tag already exists and nothing is released.
+#
+# IMPORTANT — the token. A tag pushed with the default GITHUB_TOKEN does NOT
+# trigger another workflow; GitHub blocks that to prevent recursion. So this
+# needs BOT_TOKEN, a PAT or GitHub App token with `contents: write`. If
+# release.yml never fires after a tag appears, that secret is why.
+name: Tag Release
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    name: Tag from VERSION
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # BOT_TOKEN and the GPG key are held by this environment, which only hands
+    # them to a run on master. They are the most dangerous secrets in the
+    # repository — the token can push a tag, and a pushed tag starts a release.
+    environment: tagging
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ secrets.BOT_TOKEN }}
+          fetch-depth: 0
+
+      - name: Read VERSION
+        id: version
+        run: |
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::VERSION '$VERSION' is not semver (expected 1.2.3 or 1.2.3-rc.1)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether the tag already exists
+        id: check
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::v${VERSION} already exists; nothing to release. Bump VERSION to release."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Fail here rather than publishing a release with an empty body. This is
+      # the last point at which it is cheap to fix.
+      - name: Verify the version has release notes
+        if: steps.check.outputs.exists == 'false'
+        run: make check-changelog
+
+      - name: Configure git for signing
+        if: steps.check.outputs.exists == 'false'
+        uses: rebelmediausa/gitconfig@726db48f1d4a860d38ef1b6e8c3e07310159c4e9 # v1.0.1
+        with:
+          git_user_name: RebelBot
+          git_user_email: bot@rebelmedia.io
+          git_gpg_key: ${{ secrets.GPG_KEY }}
+          git_gpg_key_id: ${{ secrets.GPG_KEY_ID }}
+
+      # Pushing the tag is the only thing that starts the release. Do not also
+      # dispatch release.yml from here: it would run twice for every tag.
+      - name: Create and push the tag
+        if: steps.check.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git tag -s "v${VERSION}" -m "Release ${VERSION}"
+          git push origin "v${VERSION}"
