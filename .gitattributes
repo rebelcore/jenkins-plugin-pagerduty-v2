@@ -1,0 +1,5 @@
+# Line endings are normalised to LF in the repository whatever the platform
+# that committed them. The Windows wrapper script is the exception: cmd.exe
+# misreads a .cmd file with LF endings.
+* text=auto eol=lf
+*.cmd text eol=crlf
