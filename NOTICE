@@ -1,1 +1,2 @@
+PagerDuty v2: sends PagerDuty Events API v2 trigger and resolve events from Jenkins builds.
 Copyright 2010 Rebel Media
