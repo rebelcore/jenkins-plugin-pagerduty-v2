@@ -15,12 +15,11 @@ package io.jenkins.plugins.pagerdutyv2;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.EnvVars;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Builds PagerDuty Events API v2 request bodies.
@@ -70,10 +69,11 @@ public class PayloadBuilder {
         return payload;
     }
 
-    public static @NonNull Map<String, Object> buildBody(@NonNull String routingKey,
-                                                         @NonNull String action,
-                                                         @NonNull String dedupKey,
-                                                         @NonNull Map<String, Object> payload) {
+    public static @NonNull Map<String, Object> buildBody(
+            @NonNull String routingKey,
+            @NonNull String action,
+            @NonNull String dedupKey,
+            @NonNull Map<String, Object> payload) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("routing_key", routingKey);
         body.put("event_action", action);

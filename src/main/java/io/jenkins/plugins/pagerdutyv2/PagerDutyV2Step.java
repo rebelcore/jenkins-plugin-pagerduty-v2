@@ -23,6 +23,9 @@ import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import hudson.util.Secret;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -32,10 +35,6 @@ import org.jenkinsci.plugins.workflow.steps.SynchronousNonBlockingStepExecution;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
-
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * Pipeline step:
@@ -121,8 +120,8 @@ public class PagerDutyV2Step extends Step {
                 throw new IllegalArgumentException("Unsupported action: " + action + " (expected trigger|resolve)");
             }
             if ("trigger".equals(action) && !VALID_SEVERITIES.contains(severity)) {
-                throw new IllegalArgumentException("Unsupported severity: " + severity
-                        + " (expected critical|error|warning|info)");
+                throw new IllegalArgumentException(
+                        "Unsupported severity: " + severity + " (expected critical|error|warning|info)");
             }
 
             String routingKey = rkSecret.getPlainText();
@@ -152,8 +151,8 @@ public class PagerDutyV2Step extends Step {
 
             @SuppressWarnings("unchecked")
             Map<String, Object> storedPayload = MAPPER.readValue(openAction.getPayloadJson(), Map.class);
-            Map<String, Object> resolveBody = PayloadBuilder.buildBody(
-                    routingKey, "resolve", openAction.getDedupKey(), storedPayload);
+            Map<String, Object> resolveBody =
+                    PayloadBuilder.buildBody(routingKey, "resolve", openAction.getDedupKey(), storedPayload);
 
             client.postEvent(resolveBody);
 

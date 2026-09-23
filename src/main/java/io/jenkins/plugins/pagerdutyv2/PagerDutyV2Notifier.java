@@ -27,6 +27,8 @@ import hudson.tasks.Notifier;
 import hudson.tasks.Publisher;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import java.io.IOException;
+import java.util.List;
 import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
 import net.sf.json.JSONObject;
@@ -37,9 +39,6 @@ import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest2;
 import org.kohsuke.stapler.interceptor.RequirePOST;
-
-import java.io.IOException;
-import java.util.List;
 
 /**
  * Freestyle/classic post-build notifier that:
@@ -57,6 +56,7 @@ public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
 
     /** If true, use the sandbox routing key configured in global settings (when defined). */
     private boolean sandboxMode = false;
+
     private int consecutiveBuildsBeforeTrigger = 1;
     private boolean triggerOnSuccess = false;
     private boolean triggerOnFailure = true;
@@ -214,11 +214,13 @@ public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
     }
 
     @Override
-    public void perform(@NonNull Run<?, ?> run,
-                        @NonNull hudson.FilePath workspace,
-                        @NonNull EnvVars env,
-                        @NonNull Launcher launcher,
-                        @NonNull TaskListener listener) throws InterruptedException, IOException {
+    public void perform(
+            @NonNull Run<?, ?> run,
+            @NonNull hudson.FilePath workspace,
+            @NonNull EnvVars env,
+            @NonNull Launcher launcher,
+            @NonNull TaskListener listener)
+            throws InterruptedException, IOException {
         PagerDutyV2Dispatcher.dispatch(run, env, new PagerDutyV2Dispatcher.Config(this), listener);
     }
 
@@ -235,7 +237,8 @@ public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
          * This prevents saving the job when the placeholder ("") is selected.
          */
         @Override
-        public PagerDutyV2Notifier newInstance(@NonNull StaplerRequest2 req, @NonNull JSONObject formData) throws Descriptor.FormException {
+        public PagerDutyV2Notifier newInstance(@NonNull StaplerRequest2 req, @NonNull JSONObject formData)
+                throws Descriptor.FormException {
             Object includeObj = formData.get("includeConsoleLogTail");
             if (includeObj instanceof JSONObject) {
                 JSONObject o = (JSONObject) includeObj;
@@ -256,7 +259,8 @@ public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
 
             PagerDutyV2Notifier n = req.bindJSON(PagerDutyV2Notifier.class, formData);
 
-            if (PagerDutyV2GlobalConfiguration.get().isRequireTags() && n.getTags().trim().isEmpty()) {
+            if (PagerDutyV2GlobalConfiguration.get().isRequireTags()
+                    && n.getTags().trim().isEmpty()) {
                 throw new Descriptor.FormException("Tags are required.", "tags");
             }
 
@@ -269,8 +273,7 @@ public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
                 }
                 if (!choices.contains(svc)) {
                     throw new Descriptor.FormException(
-                            "Service must be one of the values defined in System Configuration.",
-                            "service");
+                            "Service must be one of the values defined in System Configuration.", "service");
                 }
             } else {
                 if (svc.isEmpty()) {
@@ -282,9 +285,8 @@ public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
         }
 
         public ListBoxModel doFillSeverityOnFailureItems(@QueryParameter String severityOnFailure) {
-            String current = (severityOnFailure == null || severityOnFailure.isBlank())
-                    ? "error"
-                    : severityOnFailure.trim();
+            String current =
+                    (severityOnFailure == null || severityOnFailure.isBlank()) ? "error" : severityOnFailure.trim();
 
             ListBoxModel m = new ListBoxModel();
             m.add(new ListBoxModel.Option("critical", "critical", "critical".equals(current)));

@@ -13,13 +13,12 @@
 
 package io.jenkins.plugins.pagerdutyv2;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
-
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 @WithJenkins
 public class PagerDutyV2GlobalConfigurationTest {

@@ -25,7 +25,6 @@ import hudson.model.listeners.RunListener;
 import hudson.tasks.Publisher;
 import hudson.util.DescribableList;
 import hudson.util.LogTaskListener;
-
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -67,8 +66,8 @@ public class PagerDutyV2RunListener extends RunListener<Run<?, ?>> {
             EnvVars env = run.getEnvironment(listener);
             PagerDutyV2Dispatcher.dispatch(run, env, new PagerDutyV2Dispatcher.Config(notifier), listener);
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING,
-                    "[pagerduty-v2] Listener-side dispatch failed for " + run.getFullDisplayName(), e);
+            LOGGER.log(
+                    Level.WARNING, "[pagerduty-v2] Listener-side dispatch failed for " + run.getFullDisplayName(), e);
         }
     }
 

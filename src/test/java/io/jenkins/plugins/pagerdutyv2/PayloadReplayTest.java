@@ -13,12 +13,11 @@
 
 package io.jenkins.plugins.pagerdutyv2;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
-
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.*;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
 
 public class PayloadReplayTest {
 
@@ -26,17 +25,16 @@ public class PayloadReplayTest {
 
     @Test
     public void resolveReusesPayload() throws Exception {
-        Map<String,Object> payload = Map.of(
+        Map<String, Object> payload = Map.of(
                 "summary", "x",
                 "source", "y",
                 "severity", "critical",
-                "custom_details", Map.of("a", 1, "b", "two")
-        );
+                "custom_details", Map.of("a", 1, "b", "two"));
 
-        Map<String,Object> trigger = PayloadBuilder.buildBody("rk", "trigger", "dk", payload);
+        Map<String, Object> trigger = PayloadBuilder.buildBody("rk", "trigger", "dk", payload);
         String json = MAPPER.writeValueAsString(trigger);
 
-        Map<String,Object> restored = MAPPER.readValue(json, Map.class);
+        Map<String, Object> restored = MAPPER.readValue(json, Map.class);
         restored.put("event_action", "resolve");
 
         assertEquals("dk", restored.get("dedup_key"));
@@ -44,7 +42,8 @@ public class PayloadReplayTest {
 
         Object restoredPayload = restored.get("payload");
         assertNotNull(restoredPayload);
-        assertEquals(MAPPER.readTree(MAPPER.writeValueAsString(payload)),
-                     MAPPER.readTree(MAPPER.writeValueAsString(restoredPayload)));
+        assertEquals(
+                MAPPER.readTree(MAPPER.writeValueAsString(payload)),
+                MAPPER.readTree(MAPPER.writeValueAsString(restoredPayload)));
     }
 }

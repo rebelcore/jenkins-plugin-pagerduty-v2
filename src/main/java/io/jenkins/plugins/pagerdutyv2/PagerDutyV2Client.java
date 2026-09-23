@@ -16,18 +16,17 @@ package io.jenkins.plugins.pagerdutyv2;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ProxyConfiguration;
+import java.io.IOException;
+import java.net.Proxy;
+import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import jenkins.model.Jenkins;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-
-import java.io.IOException;
-import java.net.Proxy;
-import java.time.Duration;
-import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * HTTP client for PagerDuty Events API v2.

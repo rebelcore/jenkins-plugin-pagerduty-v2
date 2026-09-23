@@ -23,6 +23,10 @@ import hudson.Extension;
 import hudson.security.ACL;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
@@ -31,11 +35,6 @@ import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest2;
 import org.kohsuke.stapler.verb.POST;
-
-import java.net.URI;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 /**
  * Global configuration for PagerDuty Events API v2.
@@ -225,10 +224,7 @@ public final class PagerDutyV2GlobalConfiguration extends GlobalConfiguration {
             return null;
         }
         List<StringCredentials> creds = CredentialsProvider.lookupCredentialsInItemGroup(
-                StringCredentials.class,
-                Jenkins.get(),
-                ACL.SYSTEM2,
-                Collections.<DomainRequirement>emptyList());
+                StringCredentials.class, Jenkins.get(), ACL.SYSTEM2, Collections.<DomainRequirement>emptyList());
         for (StringCredentials c : creds) {
             if (credentialId.equals(c.getId())) {
                 return c.getSecret();

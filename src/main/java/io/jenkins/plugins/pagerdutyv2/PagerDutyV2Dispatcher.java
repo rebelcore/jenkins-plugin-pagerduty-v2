@@ -21,7 +21,6 @@ import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.util.Secret;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
@@ -88,10 +87,9 @@ final class PagerDutyV2Dispatcher {
      * "skipped" cases) so the {@link PagerDutyV2RunListener} fallback does
      * not double-fire.
      */
-    static void dispatch(@NonNull Run<?, ?> run,
-                         @NonNull EnvVars env,
-                         @NonNull Config c,
-                         @NonNull TaskListener listener) throws IOException {
+    static void dispatch(
+            @NonNull Run<?, ?> run, @NonNull EnvVars env, @NonNull Config c, @NonNull TaskListener listener)
+            throws IOException {
         Result result = run.getResult();
         if (result == null) {
             return; // build still in progress; nothing to do
@@ -117,8 +115,8 @@ final class PagerDutyV2Dispatcher {
                 rkSecret = sandbox;
                 listener.getLogger().println("[pagerduty-v2] Sandbox mode enabled; using sandbox routing key.");
             } else {
-                listener.getLogger().println(
-                        "[pagerduty-v2] Sandbox mode enabled but no sandbox routing key configured; "
+                listener.getLogger()
+                        .println("[pagerduty-v2] Sandbox mode enabled but no sandbox routing key configured; "
                                 + "falling back to primary routing key.");
             }
         }
@@ -140,15 +138,17 @@ final class PagerDutyV2Dispatcher {
         if (shouldTrigger) {
             int streak = consecutiveTriggerStreak(c, run);
             if (streak < c.consecutiveBuildsBeforeTrigger) {
-                listener.getLogger().println("[pagerduty-v2] Trigger condition met but streak "
-                        + streak + "/" + c.consecutiveBuildsBeforeTrigger + " not reached; not triggering yet.");
+                listener.getLogger()
+                        .println("[pagerduty-v2] Trigger condition met but streak " + streak + "/"
+                                + c.consecutiveBuildsBeforeTrigger + " not reached; not triggering yet.");
                 markHandled(run, "streak-not-reached");
                 return;
             }
 
             if (openAction != null) {
-                listener.getLogger().println("[pagerduty-v2] Open incident already exists (dedup_key="
-                        + openAction.getDedupKey() + "); not triggering again.");
+                listener.getLogger()
+                        .println("[pagerduty-v2] Open incident already exists (dedup_key=" + openAction.getDedupKey()
+                                + "); not triggering again.");
                 markHandled(run, "open-incident-exists");
                 return;
             }
@@ -166,8 +166,7 @@ final class PagerDutyV2Dispatcher {
             boolean executorDisconnected = !Result.SUCCESS.equals(result) && isExecutorDisconnected(run);
             if (executorDisconnected && !c.useCustomSummary) {
                 Object summary = payload.get("summary");
-                if (summary instanceof String s
-                        && !s.toLowerCase(Locale.ROOT).contains("executor disconnected")) {
+                if (summary instanceof String s && !s.toLowerCase(Locale.ROOT).contains("executor disconnected")) {
                     payload.put("summary", s + " (executor disconnected)");
                 }
             }
@@ -213,8 +212,8 @@ final class PagerDutyV2Dispatcher {
         if (c.resolveOnBackToNormal && openAction != null && Result.SUCCESS.equals(result)) {
             @SuppressWarnings("unchecked")
             Map<String, Object> storedPayload = MAPPER.readValue(openAction.getPayloadJson(), Map.class);
-            Map<String, Object> resolveBody = PayloadBuilder.buildBody(
-                    routingKey, "resolve", openAction.getDedupKey(), storedPayload);
+            Map<String, Object> resolveBody =
+                    PayloadBuilder.buildBody(routingKey, "resolve", openAction.getDedupKey(), storedPayload);
             client.postEvent(resolveBody);
             openAction.markResolved();
             Run<?, ?> owner = openAction.getOwner();

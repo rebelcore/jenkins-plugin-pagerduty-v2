@@ -13,9 +13,9 @@
 
 package io.jenkins.plugins.pagerdutyv2;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.Test;
 
 class LegacyBodyMigratorTest {
 

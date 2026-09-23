@@ -13,12 +13,10 @@
 
 package io.jenkins.plugins.pagerdutyv2;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import okhttp3.OkHttpClient;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -26,8 +24,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.*;
+import okhttp3.OkHttpClient;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 class PagerDutyV2ClientTest {
 
@@ -106,8 +105,8 @@ class PagerDutyV2ClientTest {
             return 400;
         });
 
-        IOException ex = assertThrows(IOException.class,
-                () -> new PagerDutyV2Client(url(), fastClient()).postEvent(Map.of("k", "v")));
+        IOException ex = assertThrows(
+                IOException.class, () -> new PagerDutyV2Client(url(), fastClient()).postEvent(Map.of("k", "v")));
         assertTrue(ex.getMessage().contains("400"));
         assertEquals(1, attempts.get(), "4xx (non-429) should not be retried");
     }
@@ -120,8 +119,8 @@ class PagerDutyV2ClientTest {
             return 500;
         });
 
-        IOException ex = assertThrows(IOException.class,
-                () -> new PagerDutyV2Client(url(), fastClient()).postEvent(Map.of("k", "v")));
+        IOException ex = assertThrows(
+                IOException.class, () -> new PagerDutyV2Client(url(), fastClient()).postEvent(Map.of("k", "v")));
         assertTrue(ex.getMessage().contains("500"));
         assertEquals(PagerDutyV2Client.MAX_ATTEMPTS, attempts.get());
     }

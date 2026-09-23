@@ -13,8 +13,8 @@
 
 package io.jenkins.plugins.pagerdutyv2;
 
-import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.Run;
 import jenkins.model.RunAction2;
 
@@ -31,6 +31,7 @@ public class PagerDutyV2RunAction implements RunAction2 {
     private String dedupKey;
     /** JSON-serialized {@code payload} object only — never the full body. */
     private String payloadJson;
+
     private boolean open = true;
 
     /**
@@ -49,10 +50,14 @@ public class PagerDutyV2RunAction implements RunAction2 {
     }
 
     @Override
-    public void onAttached(Run<?, ?> r) { this.owner = r; }
+    public void onAttached(Run<?, ?> r) {
+        this.owner = r;
+    }
 
     @Override
-    public void onLoad(Run<?, ?> r) { this.owner = r; }
+    public void onLoad(Run<?, ?> r) {
+        this.owner = r;
+    }
 
     public @NonNull String getDedupKey() {
         return dedupKey;

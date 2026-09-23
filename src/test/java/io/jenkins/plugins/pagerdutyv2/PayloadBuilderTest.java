@@ -13,12 +13,11 @@
 
 package io.jenkins.plugins.pagerdutyv2;
 
-import hudson.EnvVars;
-import org.junit.jupiter.api.Test;
-
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.*;
+
+import hudson.EnvVars;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
 
 public class PayloadBuilderTest {
 
