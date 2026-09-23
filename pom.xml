@@ -91,6 +91,10 @@
          reports low-confidence findings too. -->
     <spotbugs.effort>Max</spotbugs.effort>
     <spotbugs.threshold>Low</spotbugs.threshold>
+    <!-- The JDKs the enforcer accepts: any from 25 up, so a plain `./mvnw` or
+         an IDE build works. The Makefile and CI narrow it to [25,26) through
+         JAVA_RANGE for anything that is released. -->
+    <java.range>[25,)</java.range>
   </properties>
 
   <dependencyManagement>
