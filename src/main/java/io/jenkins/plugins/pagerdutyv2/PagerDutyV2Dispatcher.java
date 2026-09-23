@@ -237,11 +237,21 @@ final class PagerDutyV2Dispatcher {
     }
 
     static boolean shouldTriggerFor(@NonNull Config c, @NonNull Result result) {
-        if (Result.SUCCESS.equals(result)) return c.triggerOnSuccess;
-        if (Result.FAILURE.equals(result)) return c.triggerOnFailure;
-        if (Result.UNSTABLE.equals(result)) return c.triggerOnUnstable;
-        if (Result.ABORTED.equals(result)) return c.triggerOnAbort;
-        if (Result.NOT_BUILT.equals(result)) return c.triggerOnNotBuilt;
+        if (Result.SUCCESS.equals(result)) {
+            return c.triggerOnSuccess;
+        }
+        if (Result.FAILURE.equals(result)) {
+            return c.triggerOnFailure;
+        }
+        if (Result.UNSTABLE.equals(result)) {
+            return c.triggerOnUnstable;
+        }
+        if (Result.ABORTED.equals(result)) {
+            return c.triggerOnAbort;
+        }
+        if (Result.NOT_BUILT.equals(result)) {
+            return c.triggerOnNotBuilt;
+        }
         return false;
     }
 
@@ -249,9 +259,10 @@ final class PagerDutyV2Dispatcher {
         int count = 0;
         for (Run<?, ?> r = run; r != null; r = r.getPreviousBuild()) {
             Result res = r.getResult();
-            if (res == null) break;
-            if (shouldTriggerFor(c, res)) count++;
-            else break;
+            if (res == null || !shouldTriggerFor(c, res)) {
+                break;
+            }
+            count++;
         }
         return count;
     }
@@ -267,11 +278,15 @@ final class PagerDutyV2Dispatcher {
     }
 
     static @NonNull String getConsoleLogTail(@NonNull Run<?, ?> run, int maxLines, int maxChars) {
-        if (maxLines <= 0 || maxChars <= 0) return "";
+        if (maxLines <= 0 || maxChars <= 0) {
+            return "";
+        }
         try {
             List<String> lines = run.getLog(Math.max(1, maxLines));
             String joined = String.join("\n", lines);
-            if (joined.length() <= maxChars) return joined;
+            if (joined.length() <= maxChars) {
+                return joined;
+            }
             return joined.substring(joined.length() - maxChars);
         } catch (IOException | RuntimeException e) {
             return "";
@@ -280,7 +295,9 @@ final class PagerDutyV2Dispatcher {
 
     static boolean isExecutorDisconnected(@NonNull Run<?, ?> run) {
         String tail = getConsoleLogTail(run, FAILURE_SIGNATURE_SCAN_LINES, FAILURE_SIGNATURE_SCAN_MAX_CHARS);
-        if (tail.isEmpty()) return false;
+        if (tail.isEmpty()) {
+            return false;
+        }
 
         String n = tail.toLowerCase(Locale.ROOT);
         return n.contains("java.nio.channels.closedchannelexception")

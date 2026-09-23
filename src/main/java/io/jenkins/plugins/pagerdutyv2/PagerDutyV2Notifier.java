@@ -46,7 +46,7 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
  *  - sends RESOLVE on success after a previous trigger
  *  - reuses trigger payload on resolve by replaying stored JSON
  */
-public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
+public final class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
 
     private String severityOnFailure = "error";
 
@@ -224,6 +224,10 @@ public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
         PagerDutyV2Dispatcher.dispatch(run, env, new PagerDutyV2Dispatcher.Config(this), listener);
     }
 
+    /**
+     * Registers the notifier as a post-build action and backs its job configuration form: field
+     * validation and the contents of its dropdowns.
+     */
     @Extension
     @Symbol("pagerDutyV2Notifier")
     public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {

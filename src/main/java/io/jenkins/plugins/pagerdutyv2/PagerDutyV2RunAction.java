@@ -25,7 +25,7 @@ import jenkins.model.RunAction2;
  * the same body to PagerDuty. The {@code routing_key} is intentionally NOT stored
  * — it is a secret and must be resolved from credentials at send time.
  */
-public class PagerDutyV2RunAction implements RunAction2 {
+public final class PagerDutyV2RunAction implements RunAction2 {
     private transient Run<?, ?> owner;
 
     private String dedupKey;

@@ -35,7 +35,7 @@ import okhttp3.Response;
  * Reuses a process-wide OkHttp client (connection pool, dispatcher).
  * Honors Jenkins {@link ProxyConfiguration}.
  */
-public class PagerDutyV2Client {
+public final class PagerDutyV2Client {
 
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
@@ -45,7 +45,7 @@ public class PagerDutyV2Client {
     static final long BASE_BACKOFF_MS = 500L;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static volatile OkHttpClient SHARED;
+    private static volatile OkHttpClient shared;
 
     private final OkHttpClient http;
     private final String endpointUrl;
@@ -61,12 +61,12 @@ public class PagerDutyV2Client {
     }
 
     private static OkHttpClient sharedClient() {
-        OkHttpClient c = SHARED;
+        OkHttpClient c = shared;
         if (c != null) {
             return c;
         }
         synchronized (PagerDutyV2Client.class) {
-            if (SHARED == null) {
+            if (shared == null) {
                 OkHttpClient.Builder b = new OkHttpClient.Builder()
                         .callTimeout(Duration.ofSeconds(15))
                         .connectTimeout(Duration.ofSeconds(10))
@@ -75,9 +75,9 @@ public class PagerDutyV2Client {
                 if (proxy != null) {
                     b.proxy(proxy);
                 }
-                SHARED = b.build();
+                shared = b.build();
             }
-            return SHARED;
+            return shared;
         }
     }
 
@@ -154,7 +154,9 @@ public class PagerDutyV2Client {
         long jitter = (long) (base * 0.25);
         long delta = jitter == 0 ? 0 : ThreadLocalRandom.current().nextLong(-jitter, jitter + 1);
         long sleep = Math.max(0L, base + delta);
-        if (sleep == 0L) return;
+        if (sleep == 0L) {
+            return;
+        }
         try {
             Thread.sleep(sleep);
         } catch (InterruptedException ie) {

@@ -13,7 +13,11 @@
 
 package io.jenkins.plugins.pagerdutyv2;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
@@ -22,7 +26,11 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import hudson.Launcher;
-import hudson.model.*;
+import hudson.model.AbstractBuild;
+import hudson.model.BuildListener;
+import hudson.model.FreeStyleBuild;
+import hudson.model.FreeStyleProject;
+import hudson.model.Result;
 import hudson.tasks.Builder;
 import hudson.util.Secret;
 import java.io.IOException;
@@ -299,7 +307,7 @@ public class PagerDutyV2NotifierIntegrationTest {
         }
     }
 
-    private static class CaptureHandler implements HttpHandler {
+    private static final class CaptureHandler implements HttpHandler {
         private final List<String> out;
 
         private CaptureHandler(List<String> out) {

@@ -45,7 +45,7 @@ import org.kohsuke.stapler.QueryParameter;
  * - action='resolve' finds the most recent open action and replays the stored payload with
  *   event_action=resolve, injecting the freshly-resolved routing key at send time
  */
-public class PagerDutyV2Step extends Step {
+public final class PagerDutyV2Step extends Step {
 
     static final Set<String> VALID_ACTIONS = Set.of("trigger", "resolve");
     static final Set<String> VALID_SEVERITIES = Set.of("critical", "error", "warning", "info");
@@ -85,7 +85,12 @@ public class PagerDutyV2Step extends Step {
         return new Execution(this, context);
     }
 
-    public static class Execution extends SynchronousNonBlockingStepExecution<Void> {
+    /**
+     * Sends the event on a background thread, so the pipeline is not blocked while PagerDuty is
+     * contacted. A trigger stores its payload on the current build; a resolve replays the most
+     * recent open trigger.
+     */
+    public static final class Execution extends SynchronousNonBlockingStepExecution<Void> {
         private static final long serialVersionUID = 1L;
         private final String action;
         private final String severity;
@@ -179,6 +184,10 @@ public class PagerDutyV2Step extends Step {
         }
     }
 
+    /**
+     * Registers the {@code pagerDutyV2} pipeline step and validates its {@code action} and {@code
+     * severity} arguments. Optional, so the plugin still loads when Pipeline is not installed.
+     */
     @Extension(optional = true)
     @Symbol("pagerDutyV2")
     public static final class DescriptorImpl extends StepDescriptor {

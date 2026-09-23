@@ -46,7 +46,7 @@ import java.util.logging.Logger;
  * {@code catchError} / {@code post { failure { ... } }}.</p>
  */
 @Extension
-public class PagerDutyV2RunListener extends RunListener<Run<?, ?>> {
+public final class PagerDutyV2RunListener extends RunListener<Run<?, ?>> {
 
     private static final Logger LOGGER = Logger.getLogger(PagerDutyV2RunListener.class.getName());
 

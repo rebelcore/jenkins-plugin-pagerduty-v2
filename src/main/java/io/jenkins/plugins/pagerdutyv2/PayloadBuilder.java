@@ -24,7 +24,9 @@ import java.util.Map;
 /**
  * Builds PagerDuty Events API v2 request bodies.
  */
-public class PayloadBuilder {
+public final class PayloadBuilder {
+    private PayloadBuilder() {}
+
     /**
      * Build a stable dedup_key as a SHA-256 hex digest of {@code JOB_NAME#BUILD_NUMBER}.
      * Stable for the lifetime of a single build; reproducible for tests.
