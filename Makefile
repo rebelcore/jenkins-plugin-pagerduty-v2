@@ -130,12 +130,16 @@ check-license: ## Fail if any Java file is missing the licence header
 # VERSION names the next release and CHANGELOG.md must describe it before
 # develop is merged to master; tag.yml refuses to tag otherwise. Checking it here
 # means the mismatch is found on the release pull request, not after the merge.
+# The section must also have entries: release.yml builds the release notes from
+# it with the same awk, and a tag that is already pushed cannot be taken back.
 .PHONY: check-changelog
-check-changelog: ## Fail if CHANGELOG.md has no release heading for VERSION
-	@v=$$(cat VERSION); \
+check-changelog: ## Fail if CHANGELOG.md has no release notes for VERSION
+	@v=$$(tr -d '[:space:]' < VERSION); \
 	grep -Eq "^## $$v / [0-9]{4}-[0-9]{2}-[0-9]{2}$$" CHANGELOG.md || { \
-		echo ">> CHANGELOG.md has no '## $$v / YYYY-MM-DD' heading for VERSION $$v"; exit 1; }
-	@echo ">> CHANGELOG.md describes $$(cat VERSION)"
+		echo ">> CHANGELOG.md has no '## $$v / YYYY-MM-DD' heading for VERSION $$v"; exit 1; }; \
+	notes=$$(awk -v ver="$$v" '/^## /{ current = ($$2 == ver) ? 1 : 0; next } current { print }' CHANGELOG.md | awk 'NF{p=1} p'); \
+	[ -n "$$notes" ] || { echo ">> CHANGELOG.md has a '## $$v' heading but no entries under it"; exit 1; }
+	@echo ">> CHANGELOG.md describes $$(tr -d '[:space:]' < VERSION)"
 
 .PHONY: check
 check: check-license lint verify ## Everything CI runs, locally
