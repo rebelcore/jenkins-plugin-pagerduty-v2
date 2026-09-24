@@ -165,10 +165,17 @@ public final class PagerDutyV2Step extends Step {
                 return null;
             }
 
+            // The step triggers with the primary key only, but the resolve follows whatever key the
+            // incident's trigger recorded, exactly as the post-build action does.
+            Secret resolveKey = PagerDutyV2Dispatcher.routingKeyThatOpened(openAction, cfg);
+            if (resolveKey == null) {
+                PagerDutyV2Dispatcher.logResolveKeyMissing(openAction, listener);
+                return null;
+            }
             @SuppressWarnings("unchecked")
             Map<String, Object> storedPayload = MAPPER.readValue(openAction.getPayloadJson(), Map.class);
-            Map<String, Object> resolveBody =
-                    PayloadBuilder.buildBody(routingKey, "resolve", openAction.getDedupKey(), storedPayload);
+            Map<String, Object> resolveBody = PayloadBuilder.buildBody(
+                    resolveKey.getPlainText(), "resolve", openAction.getDedupKey(), storedPayload);
 
             client.postEvent(resolveBody);
 

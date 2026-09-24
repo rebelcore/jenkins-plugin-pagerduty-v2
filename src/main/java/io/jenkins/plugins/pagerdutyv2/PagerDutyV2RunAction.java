@@ -55,6 +55,12 @@ public final class PagerDutyV2RunAction implements RunAction2 {
     private boolean keepingOwner;
 
     /**
+     * Whether the trigger went to the sandbox integration. The incident lives there, so its resolve
+     * has to use the same routing key, whatever the job's sandbox setting says by then.
+     */
+    private boolean sandbox;
+
+    /**
      * Legacy field: full trigger body JSON including {@code routing_key}.
      * Persisted by 1.0.0; kept here only so XStream can read those
      * {@code build.xml} files. {@link #readResolve()} moves the payload to
@@ -65,9 +71,14 @@ public final class PagerDutyV2RunAction implements RunAction2 {
     private String triggerBodyJson;
 
     public PagerDutyV2RunAction(@NonNull String dedupKey, @NonNull String payloadJson) {
+        this(dedupKey, payloadJson, false);
+    }
+
+    public PagerDutyV2RunAction(@NonNull String dedupKey, @NonNull String payloadJson, boolean sandbox) {
         this.dedupKey = dedupKey;
         this.payloadJson = payloadJson;
         this.open = true;
+        this.sandbox = sandbox;
     }
 
     @Override
@@ -104,6 +115,10 @@ public final class PagerDutyV2RunAction implements RunAction2 {
 
     public boolean isOpen() {
         return open;
+    }
+
+    public boolean isSandbox() {
+        return sandbox;
     }
 
     public void markResolved() {

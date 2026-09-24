@@ -205,14 +205,17 @@ tests.
 #### Payload replay
 
 On trigger, the plugin stores the event payload and dedup key in a
-`PagerDutyV2RunAction` attached to that build. The routing key is not stored:
-it is read from the credential each time an event is sent.
+`PagerDutyV2RunAction` attached to that build, together with which routing key
+it used: the primary one or, in sandbox mode, the sandbox one. The key itself is
+not stored: it is read from its credential each time an event is sent.
 
 On resolve:
 
 - the stored payload is loaded
 - `event_action` is set to `"resolve"`
-- the event is posted with the current routing key
+- the event is posted with the same routing key the trigger used, read from its
+  credential again; if that credential is no longer configured, the incident is
+  left open and the build log says why
 - the stored action is marked closed
 
 This ensures that a resolve uses the same `dedup_key` and payload structure as

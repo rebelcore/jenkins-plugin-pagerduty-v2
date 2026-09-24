@@ -23,6 +23,7 @@ release notes from pull request labels, not here.
 * [BUGFIX] Matrix jobs no longer send an extra event for the parent build on top of the events from their configurations.
 * [BUGFIX] The `pagerDutyV2` pipeline step no longer triggers a second incident while one is already open for the job.
 * [BUGFIX] Events follow the Jenkins proxy configuration on every request: proxy credentials and the no-proxy list now apply, and a proxy change takes effect without a restart.
+* [BUGFIX] A resolve uses the routing key its trigger used, primary or sandbox, instead of the job's current sandbox setting, which could send it to an integration that silently dropped it. If that key is no longer configured, the incident stays open and the build log says why.
 
 ## 1.1.0 / 2026-04-28
 
