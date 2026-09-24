@@ -5,8 +5,8 @@
 # GitHub reads pom.xml on its own, but only what is written in it: versions
 # that come from a parent POM or an imported BOM, and every transitive
 # dependency, are invisible to it. So the first job runs Maven's own
-# resolution and submits the full graph, and the review compares that graph
-# with develop's. The push trigger keeps develop's graph current for the
+# resolution and submits the resolved run-time graph, and the review compares
+# that graph with develop's. The push trigger keeps develop's graph current for the
 # comparison.
 name: Dependency Review
 
@@ -25,6 +25,10 @@ concurrency:
 jobs:
   submit:
     name: Dependency submission
+    # Submitting needs contents: write, which GitHub never gives a pull request
+    # from a fork. For those, the review below runs on GitHub's own reading of
+    # pom.xml instead.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -40,11 +44,18 @@ jobs:
           java-version: "25"
           cache: maven
 
+      # Only what the plugin needs at run time. Jenkins core and its own
+      # libraries are `provided` (Jenkins supplies them; the .hpi never
+      # contains them), and `test` is the test harness. Reviewing those would
+      # hold this plugin to licences and advisories of code it does not ship.
       - uses: advanced-security/maven-dependency-submission-action@a64327a7329c9939cf675e458452febe1894a70c # v6.0.1
+        with:
+          maven-args: -Dscopes=compile,runtime
 
   review:
     name: Dependency review
-    if: github.event_name == 'pull_request'
+    # !cancelled() lets the review run when submit was skipped for a fork.
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
     needs: submit
     runs-on: ubuntu-latest
     timeout-minutes: 10

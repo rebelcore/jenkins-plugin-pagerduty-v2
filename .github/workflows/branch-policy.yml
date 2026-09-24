@@ -12,6 +12,9 @@ name: Branch Policy
 on:
   pull_request:
     branches: [develop, master]
+    # `edited` covers a pull request whose target branch is changed after it
+    # was opened; the check has to run again for the new target.
+    types: [opened, synchronize, reopened, edited]
 
 permissions: {}
 
@@ -26,11 +29,15 @@ jobs:
         env:
           HEAD: ${{ github.head_ref }}
           BASE: ${{ github.base_ref }}
+          # A fork can have a branch called develop too; only this
+          # repository's own develop is a release.
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
         run: |
           case "$BASE" in
             master)
-              if [ "$HEAD" != "develop" ]; then
-                echo "::error::Only develop may be merged into master (got '$HEAD'). Open this pull request against develop."
+              if [ "$HEAD" != "develop" ] || [ "$HEAD_REPO" != "$REPO" ]; then
+                echo "::error::Only $REPO's develop may be merged into master (got '$HEAD_REPO:$HEAD'). Open this pull request against develop."
                 exit 1
               fi
               ;;

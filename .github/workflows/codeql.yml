@@ -1,9 +1,13 @@
 ---
-# Static analysis for the Java sources.
+# Static analysis for the Java sources and for the workflows themselves.
 #
 # build-mode none: CodeQL reads the sources without compiling them, so the scan
 # needs neither JDK 25 nor the Maven repositories, and cannot be broken by a
 # build problem that test.yml would already report.
+#
+# The `actions` language checks .github/workflows for injection of untrusted
+# input (a pull request title in a `run:` step, say) and for unsafe triggers.
+# GitHub's automatic CodeQL setup did that before this workflow replaced it.
 #
 # The weekly schedule is not redundant with the per-pull-request run: CodeQL's
 # queries are updated continuously, so a scheduled scan finds issues in code
@@ -14,7 +18,7 @@ on:
   push:
     branches: [develop, master]
   pull_request:
-    branches: [develop]
+    branches: [develop, master]
   schedule:
     - cron: "0 7 * * 1"
 
@@ -26,12 +30,16 @@ concurrency:
 
 jobs:
   analyze:
-    name: Analyze (java-kotlin)
+    name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
       security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [java-kotlin, actions]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -39,10 +47,10 @@ jobs:
 
       - uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
-          languages: java-kotlin
+          languages: ${{ matrix.language }}
           build-mode: none
           queries: security-and-quality
 
       - uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
-          category: /language:java-kotlin
+          category: /language:${{ matrix.language }}
