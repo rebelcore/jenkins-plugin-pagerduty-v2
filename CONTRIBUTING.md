@@ -35,8 +35,10 @@ That includes fixes and documentation.
 `perf`, `refactor`, `test`, `docs`, `build`, `ci`, `chore` or `deps`. A breaking
 change adds `!` after the type and a `BREAKING CHANGE:` footer.
 
-The pull request title follows the same rule, because it becomes the squash
-commit.
+Pull requests are merged with a merge commit, so every commit on your branch
+lands on `develop` exactly as you wrote it: each one needs a conventional
+message, a sign-off and a signature. The pull request title follows the same
+rule, because it becomes the merge commit's title.
 
 ## Building
 
