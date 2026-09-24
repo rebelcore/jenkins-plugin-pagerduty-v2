@@ -27,7 +27,7 @@ release notes from pull request labels, not here.
 * [ENHANCEMENT] Credential dropdowns list only matching credentials, keep the current value, require POST, and show non-administrators the current value only.
 * [ENHANCEMENT] Share one HTTP client across all events instead of creating one per event.
 * [ENHANCEMENT] Saving the system configuration writes the plugin's settings once instead of once per field.
-* [BUGFIX] Security: the routing key is no longer written to `build.xml`. Only the event payload is stored, and the key is read from the credential each time an event is sent. Existing builds are migrated when they load, and rotating the key no longer breaks resolving older incidents.
+* [BUGFIX] Security: the routing key is no longer written to `build.xml`. Only the event payload is stored, and the key is read from the credential each time an event is sent. Builds recorded by 1.0.0 still load, and rotating the key no longer breaks resolving older incidents.
 
 ## 1.0.0 / 2026-01-27
 
