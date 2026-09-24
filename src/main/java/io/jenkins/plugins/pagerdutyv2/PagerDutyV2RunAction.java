@@ -16,6 +16,8 @@ package io.jenkins.plugins.pagerdutyv2;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.Run;
+import hudson.security.ACL;
+import hudson.security.ACLContext;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -44,6 +46,13 @@ public final class PagerDutyV2RunAction implements RunAction2 {
     private String payloadJson;
 
     private boolean open = true;
+
+    /**
+     * Whether this plugin marked the owning build "keep forever". An open incident is recorded only
+     * on the build that triggered it, so build retention must not delete that build before the
+     * incident is resolved.
+     */
+    private boolean keepingOwner;
 
     /**
      * Legacy field: full trigger body JSON including {@code routing_key}.
@@ -99,6 +108,39 @@ public final class PagerDutyV2RunAction implements RunAction2 {
 
     public void markResolved() {
         this.open = false;
+    }
+
+    /**
+     * Keeps the owning build out of build retention while its incident is open. A build that is
+     * already kept is left alone, and so is not released again later.
+     */
+    void keepOwnerWhileOpen() {
+        Run<?, ?> r = owner;
+        if (r == null || r.isKeepLog()) {
+            return;
+        }
+        keepingOwner = true;
+        // As SYSTEM: the build may run as a user who cannot change "keep forever" themselves.
+        try (ACLContext ignored = ACL.as2(ACL.SYSTEM2)) {
+            r.keepLog(true);
+        } catch (IOException | RuntimeException e) {
+            keepingOwner = false;
+            LOGGER.log(Level.WARNING, "Could not keep " + r + " while its PagerDuty incident is open", e);
+        }
+    }
+
+    /** Hands the owning build back to build retention, if this plugin was the one keeping it. */
+    void stopKeepingOwner() {
+        Run<?, ?> r = owner;
+        if (r == null || !keepingOwner) {
+            return;
+        }
+        keepingOwner = false;
+        try (ACLContext ignored = ACL.as2(ACL.SYSTEM2)) {
+            r.keepLog(false);
+        } catch (IOException | RuntimeException e) {
+            LOGGER.log(Level.WARNING, "Could not release " + r + " to build retention", e);
+        }
     }
 
     /**

@@ -143,6 +143,11 @@ If an open incident already exists and a trigger condition happens again, the pl
 
 - `[pagerduty-v2] Open incident already exists ...; not triggering again.`
 
+While an incident is open, the build that triggered it is marked **Keep this build
+forever**, because that build is the only record of the incident: if build
+retention deleted it, the incident could never be resolved. The mark is removed
+when the incident is resolved, unless the build was already kept.
+
 #### Agent-disconnect resilience
 
 When an agent disconnects mid-build, the build has no workspace by the time its post-build actions run. This post-build action does not need one, so it still runs and sends the event from the controller. As a further fallback, a controller-side `RunListener` fires after every freestyle build's final state is recorded and dispatches the same trigger/resolve logic if the post-build action did not run at all. The two paths coordinate through a transient `PagerDutyV2HandledAction` marker so a single build never produces two events.

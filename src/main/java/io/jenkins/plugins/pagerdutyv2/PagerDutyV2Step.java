@@ -140,7 +140,9 @@ public final class PagerDutyV2Step extends Step {
                 client.postEvent(body);
 
                 String payloadJson = MAPPER.writeValueAsString(payload);
-                run.addAction(new PagerDutyV2RunAction(dedupKey, payloadJson));
+                PagerDutyV2RunAction triggered = new PagerDutyV2RunAction(dedupKey, payloadJson);
+                run.addAction(triggered);
+                triggered.keepOwnerWhileOpen();
                 run.save();
 
                 listener.getLogger().println("[pagerduty-v2] Trigger sent (dedup_key=" + dedupKey + ")");
@@ -162,6 +164,7 @@ public final class PagerDutyV2Step extends Step {
             client.postEvent(resolveBody);
 
             openAction.markResolved();
+            openAction.stopKeepingOwner();
             Run<?, ?> owner = openAction.getOwner();
             if (owner != null) {
                 owner.save();

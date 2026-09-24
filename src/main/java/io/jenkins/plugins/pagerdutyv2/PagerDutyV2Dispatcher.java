@@ -204,7 +204,9 @@ final class PagerDutyV2Dispatcher {
             client.postEvent(body);
 
             String payloadJson = MAPPER.writeValueAsString(payload);
-            run.addAction(new PagerDutyV2RunAction(dedupKey, payloadJson));
+            PagerDutyV2RunAction action = new PagerDutyV2RunAction(dedupKey, payloadJson);
+            run.addAction(action);
+            action.keepOwnerWhileOpen();
             run.save();
 
             listener.getLogger().println("[pagerduty-v2] Trigger sent (dedup_key=" + dedupKey + ")");
@@ -219,6 +221,7 @@ final class PagerDutyV2Dispatcher {
             markHandled(run, "resolve");
             client.postEvent(resolveBody);
             openAction.markResolved();
+            openAction.stopKeepingOwner();
             Run<?, ?> owner = openAction.getOwner();
             if (owner != null) {
                 owner.save();

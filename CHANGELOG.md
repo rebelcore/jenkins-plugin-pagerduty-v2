@@ -19,6 +19,7 @@ release notes from pull request labels, not here.
 * [BUGFIX] Security: builds that triggered an event under 1.0.0 still held the routing key in their `build.xml`. Each such build is now rewritten without it the first time it loads. If you ran 1.0.0, rotate the integration key if copies of `JENKINS_HOME`, such as backups, may have been exposed.
 * [BUGFIX] A freestyle build whose agent disconnected before its post-build actions no longer fails with "no workspace": the post-build action runs without one and sends the event itself, and a green build stays green.
 * [BUGFIX] When sending an event fails, the disconnect fallback no longer sends it again, which doubled the retries and could leave a green build red without its resolve.
+* [BUGFIX] The build that opened an incident is kept until the incident is resolved. Build retention could delete it first, leaving the incident open forever and letting the next failure open a second one.
 
 ## 1.1.0 / 2026-04-28
 
