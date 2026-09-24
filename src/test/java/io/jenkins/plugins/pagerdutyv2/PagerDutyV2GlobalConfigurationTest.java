@@ -25,7 +25,7 @@ public class PagerDutyV2GlobalConfigurationTest {
 
     @Test
     void serviceChoicesParsingTrimsAndDedupes(JenkinsRule j) {
-        PagerDutyV2GlobalConfiguration cfg = PagerDutyV2GlobalConfiguration.get();
+        PagerDutyV2GlobalConfiguration cfg = j.jenkins.getDescriptorByType(PagerDutyV2GlobalConfiguration.class);
         cfg.setServiceChoicesRaw(" svc-a , svc-b\nsvc-b\nsvc-c\n  \nsvc-a");
 
         List<String> parsed = cfg.getServiceChoices();
