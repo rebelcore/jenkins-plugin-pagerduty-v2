@@ -1,53 +1,46 @@
+---
 name: Feature Request
-description: Suggest an enhancement for the PagerDuty v2 Jenkins plugin.
-title: "[FEATURE]: "
+description: Suggest an idea for this project.
+title: "[FEATURE REQUEST]: "
 labels: ["enhancement"]
-
 body:
-  - type: markdown
+  - type: textarea
+    id: summary
     attributes:
-      value: |
-        Thanks for the idea! Please describe the problem you’re trying to solve and what “done” looks like.
-
+      label: Summary
+      description: A brief explanation of the feature.
+    validations:
+      required: true
   - type: textarea
     id: problem
     attributes:
-      label: Problem / use case
-      description: What are you trying to achieve? What pain point does this address?
+      label: Problem
+      description: |
+        What are you actually trying to do? Describing the underlying problem
+        rather than the solution you have in mind often surfaces a better one.
+      placeholder: I am trying to ... and currently I have to ...
     validations:
       required: true
-
   - type: textarea
-    id: proposal
+    id: basic_example
     attributes:
-      label: Proposed solution
-      description: Describe your preferred solution/behavior.
+      label: Basic Example
     validations:
       required: true
-
-  - type: textarea
-    id: acceptance
+  - type: dropdown
+    id: importance
     attributes:
-      label: Acceptance criteria
-      value: |
-        - [ ]
-        - [ ]
-        - [ ]
+      label: How important is this to you?
+      options:
+        - "Blocking — I cannot use this without it"
+        - "Important — I have a workaround, but it is painful"
+        - "Nice to have"
     validations:
-      required: false
-
+      required: true
   - type: textarea
-    id: alternatives
+    id: drawbacks
     attributes:
-      label: Alternatives considered
-      description: Any alternative solutions or workarounds?
+      label: Drawbacks
+      description: What are the drawbacks or impacts of this request?
     validations:
-      required: false
-
-  - type: textarea
-    id: additional
-    attributes:
-      label: Additional context
-      description: Mockups, references, PagerDuty docs, related issues, etc.
-    validations:
-      required: false
+      required: true

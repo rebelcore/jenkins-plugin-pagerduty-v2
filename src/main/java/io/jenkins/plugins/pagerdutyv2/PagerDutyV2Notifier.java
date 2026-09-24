@@ -1,3 +1,16 @@
+// Copyright 2010 Rebel Media
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package io.jenkins.plugins.pagerdutyv2;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
@@ -14,6 +27,8 @@ import hudson.tasks.Notifier;
 import hudson.tasks.Publisher;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import java.io.IOException;
+import java.util.List;
 import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
 import net.sf.json.JSONObject;
@@ -25,16 +40,13 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest2;
 import org.kohsuke.stapler.interceptor.RequirePOST;
 
-import java.io.IOException;
-import java.util.List;
-
 /**
  * Freestyle/classic post-build notifier that:
  *  - sends TRIGGER on failure-ish
  *  - sends RESOLVE on success after a previous trigger
  *  - reuses trigger payload on resolve by replaying stored JSON
  */
-public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
+public final class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
 
     private String severityOnFailure = "error";
 
@@ -44,6 +56,7 @@ public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
 
     /** If true, use the sandbox routing key configured in global settings (when defined). */
     private boolean sandboxMode = false;
+
     private int consecutiveBuildsBeforeTrigger = 1;
     private boolean triggerOnSuccess = false;
     private boolean triggerOnFailure = true;
@@ -200,15 +213,38 @@ public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
         this.resolveOnBackToNormal = resolveOnBackToNormal;
     }
 
+    /**
+     * Nothing here touches the workspace. Saying so lets Jenkins run this post-build action for a
+     * build whose agent disconnected, instead of failing it with "no workspace" and marking a green
+     * build FAILURE.
+     */
     @Override
-    public void perform(@NonNull Run<?, ?> run,
-                        @NonNull hudson.FilePath workspace,
-                        @NonNull EnvVars env,
-                        @NonNull Launcher launcher,
-                        @NonNull TaskListener listener) throws InterruptedException, IOException {
+    public boolean requiresWorkspace() {
+        return false;
+    }
+
+    @Override
+    public void perform(@NonNull Run<?, ?> run, @NonNull EnvVars env, @NonNull TaskListener listener)
+            throws InterruptedException, IOException {
         PagerDutyV2Dispatcher.dispatch(run, env, new PagerDutyV2Dispatcher.Config(this), listener);
     }
 
+    /** Jenkins still calls this variant when the build does have a workspace. */
+    @Override
+    public void perform(
+            @NonNull Run<?, ?> run,
+            @NonNull hudson.FilePath workspace,
+            @NonNull EnvVars env,
+            @NonNull Launcher launcher,
+            @NonNull TaskListener listener)
+            throws InterruptedException, IOException {
+        perform(run, env, listener);
+    }
+
+    /**
+     * Registers the notifier as a post-build action and backs its job configuration form: field
+     * validation and the contents of its dropdowns.
+     */
     @Extension
     @Symbol("pagerDutyV2Notifier")
     public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {
@@ -222,7 +258,8 @@ public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
          * This prevents saving the job when the placeholder ("") is selected.
          */
         @Override
-        public PagerDutyV2Notifier newInstance(@NonNull StaplerRequest2 req, @NonNull JSONObject formData) throws Descriptor.FormException {
+        public PagerDutyV2Notifier newInstance(@NonNull StaplerRequest2 req, @NonNull JSONObject formData)
+                throws Descriptor.FormException {
             Object includeObj = formData.get("includeConsoleLogTail");
             if (includeObj instanceof JSONObject) {
                 JSONObject o = (JSONObject) includeObj;
@@ -243,7 +280,8 @@ public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
 
             PagerDutyV2Notifier n = req.bindJSON(PagerDutyV2Notifier.class, formData);
 
-            if (PagerDutyV2GlobalConfiguration.get().isRequireTags() && n.getTags().trim().isEmpty()) {
+            if (PagerDutyV2GlobalConfiguration.get().isRequireTags()
+                    && n.getTags().trim().isEmpty()) {
                 throw new Descriptor.FormException("Tags are required.", "tags");
             }
 
@@ -256,8 +294,7 @@ public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
                 }
                 if (!choices.contains(svc)) {
                     throw new Descriptor.FormException(
-                            "Service must be one of the values defined in System Configuration.",
-                            "service");
+                            "Service must be one of the values defined in System Configuration.", "service");
                 }
             } else {
                 if (svc.isEmpty()) {
@@ -269,9 +306,8 @@ public class PagerDutyV2Notifier extends Notifier implements SimpleBuildStep {
         }
 
         public ListBoxModel doFillSeverityOnFailureItems(@QueryParameter String severityOnFailure) {
-            String current = (severityOnFailure == null || severityOnFailure.isBlank())
-                    ? "error"
-                    : severityOnFailure.trim();
+            String current =
+                    (severityOnFailure == null || severityOnFailure.isBlank()) ? "error" : severityOnFailure.trim();
 
             ListBoxModel m = new ListBoxModel();
             m.add(new ListBoxModel.Option("critical", "critical", "critical".equals(current)));

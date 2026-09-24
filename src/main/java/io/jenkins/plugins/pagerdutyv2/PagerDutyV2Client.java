@@ -1,29 +1,39 @@
+// Copyright 2010 Rebel Media
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package io.jenkins.plugins.pagerdutyv2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.NonNull;
-import hudson.ProxyConfiguration;
-import jenkins.model.Jenkins;
+import io.jenkins.plugins.okhttp.api.JenkinsOkHttpClient;
+import java.io.IOException;
+import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-import java.io.IOException;
-import java.net.Proxy;
-import java.time.Duration;
-import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
-
 /**
  * HTTP client for PagerDuty Events API v2.
  *
  * Retries on 429 and 5xx with exponential backoff + jitter.
  * Reuses a process-wide OkHttp client (connection pool, dispatcher).
- * Honors Jenkins {@link ProxyConfiguration}.
+ * Follows the Jenkins proxy configuration, looked up again for every request.
  */
-public class PagerDutyV2Client {
+public final class PagerDutyV2Client {
 
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
@@ -33,7 +43,7 @@ public class PagerDutyV2Client {
     static final long BASE_BACKOFF_MS = 500L;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static volatile OkHttpClient SHARED;
+    private static volatile OkHttpClient shared;
 
     private final OkHttpClient http;
     private final String endpointUrl;
@@ -49,40 +59,23 @@ public class PagerDutyV2Client {
     }
 
     private static OkHttpClient sharedClient() {
-        OkHttpClient c = SHARED;
+        OkHttpClient c = shared;
         if (c != null) {
             return c;
         }
         synchronized (PagerDutyV2Client.class) {
-            if (SHARED == null) {
-                OkHttpClient.Builder b = new OkHttpClient.Builder()
+            if (shared == null) {
+                // okhttp-api's builder asks Jenkins for the proxy on every request, for the host that
+                // request goes to, and answers proxy authentication with the configured credentials.
+                // Choosing one proxy up front, as before, ignored credentials, the no-proxy list for
+                // a custom endpoint, and any proxy change made after the first event.
+                shared = JenkinsOkHttpClient.newClientBuilder(new OkHttpClient())
                         .callTimeout(Duration.ofSeconds(15))
                         .connectTimeout(Duration.ofSeconds(10))
-                        .readTimeout(Duration.ofSeconds(15));
-                Proxy proxy = jenkinsProxy();
-                if (proxy != null) {
-                    b.proxy(proxy);
-                }
-                SHARED = b.build();
+                        .readTimeout(Duration.ofSeconds(15))
+                        .build();
             }
-            return SHARED;
-        }
-    }
-
-    private static Proxy jenkinsProxy() {
-        try {
-            Jenkins j = Jenkins.getInstanceOrNull();
-            if (j == null) {
-                return null;
-            }
-            ProxyConfiguration pc = j.getProxy();
-            if (pc == null) {
-                return null;
-            }
-            // createProxy(host) uses the host to honor no-proxy rules
-            return pc.createProxy("events.pagerduty.com");
-        } catch (RuntimeException e) {
-            return null;
+            return shared;
         }
     }
 
@@ -130,9 +123,7 @@ public class PagerDutyV2Client {
 
     private static String bodySnippet(Response resp) {
         try {
-            okhttp3.ResponseBody rb = resp.body();
-            if (rb == null) return "";
-            String s = rb.string();
+            String s = resp.body().string();
             return s.length() > 500 ? s.substring(0, 500) + "..." : s;
         } catch (IOException e) {
             return "";
@@ -144,7 +135,9 @@ public class PagerDutyV2Client {
         long jitter = (long) (base * 0.25);
         long delta = jitter == 0 ? 0 : ThreadLocalRandom.current().nextLong(-jitter, jitter + 1);
         long sleep = Math.max(0L, base + delta);
-        if (sleep == 0L) return;
+        if (sleep == 0L) {
+            return;
+        }
         try {
             Thread.sleep(sleep);
         } catch (InterruptedException ie) {

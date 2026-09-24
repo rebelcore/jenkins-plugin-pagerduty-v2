@@ -1,0 +1,29 @@
+---
+# An inbound Jenkins agent for trying agent disconnects against the development
+# Jenkins from `make run`. See "Trying an agent disconnect by hand" in
+# CONTRIBUTING.md; `make agent-up`, `agent-kill`, `agent-logs` and `agent-down`
+# drive it.
+services:
+  agent:
+    image: jenkins/inbound-agent:latest-jdk21
+    environment:
+      # Overridden via AGENT_JENKINS_URL, not JENKINS_URL: jenkins-cli users often
+      # export JENKINS_URL, and shell variables take precedence over .env.
+      JENKINS_URL: ${AGENT_JENKINS_URL:-http://host.docker.internal:8080/jenkins/}
+      JENKINS_AGENT_NAME: ${JENKINS_AGENT_NAME:-disconnect-test}
+      # Derived from the controller's own key, so it differs per JENKINS_HOME;
+      # keep it in .env, which git ignores.
+      JENKINS_SECRET: ${JENKINS_SECRET:?set JENKINS_SECRET in .env - copy it from http://localhost:8080/jenkins/computer/disconnect-test/}
+      JENKINS_AGENT_WORKDIR: /home/jenkins/agent
+    # hpi:run listens on localhost only. Docker Desktop forwards
+    # host.docker.internal to the host loopback; native Linux Docker maps it to
+    # the bridge (usually 172.17.0.1), so on Linux run
+    # `make run RUN_FLAGS=-Dhost=172.17.0.1`. Never 0.0.0.0: the development
+    # Jenkins is unsecured.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - agent-work:/home/jenkins/agent
+
+volumes:
+  agent-work:

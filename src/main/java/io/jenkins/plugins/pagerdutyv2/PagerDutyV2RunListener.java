@@ -1,3 +1,16 @@
+// Copyright 2010 Rebel Media
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package io.jenkins.plugins.pagerdutyv2;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
@@ -5,6 +18,7 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.model.AbstractProject;
+import hudson.model.Build;
 import hudson.model.Job;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -12,15 +26,14 @@ import hudson.model.listeners.RunListener;
 import hudson.tasks.Publisher;
 import hudson.util.DescribableList;
 import hudson.util.LogTaskListener;
-
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
  * Controller-side fallback that fires PagerDuty events for builds whose
- * publisher phase didn't run — most commonly when the executing agent
- * disconnected mid-build, leaving no workspace for {@link PagerDutyV2Notifier}
- * to attach to.
+ * post-build action never ran. {@link PagerDutyV2Notifier} does not need a
+ * workspace, so it normally sends the event itself even when the agent
+ * disconnected mid-build; this covers any build that still ends without it.
  *
  * <p>{@link RunListener#onFinalized} runs on the controller after the build's
  * final state is recorded, regardless of agent state, and does not require a
@@ -34,12 +47,18 @@ import java.util.logging.Logger;
  * {@code catchError} / {@code post { failure { ... } }}.</p>
  */
 @Extension
-public class PagerDutyV2RunListener extends RunListener<Run<?, ?>> {
+public final class PagerDutyV2RunListener extends RunListener<Run<?, ?>> {
 
     private static final Logger LOGGER = Logger.getLogger(PagerDutyV2RunListener.class.getName());
 
     @Override
     public void onFinalized(@NonNull Run<?, ?> run) {
+        // Only builds that run their own post-build actions: freestyle builds and matrix
+        // configurations. A matrix parent build runs none, and its configurations have already sent
+        // their events, so treating it as a skipped build would page once more for the whole matrix.
+        if (!(run instanceof Build)) {
+            return;
+        }
         if (run.getAction(PagerDutyV2HandledAction.class) != null) {
             return; // PagerDutyV2Notifier#perform already handled (or deliberately skipped) this build
         }
@@ -54,8 +73,8 @@ public class PagerDutyV2RunListener extends RunListener<Run<?, ?>> {
             EnvVars env = run.getEnvironment(listener);
             PagerDutyV2Dispatcher.dispatch(run, env, new PagerDutyV2Dispatcher.Config(notifier), listener);
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING,
-                    "[pagerduty-v2] Listener-side dispatch failed for " + run.getFullDisplayName(), e);
+            LOGGER.log(
+                    Level.WARNING, "[pagerduty-v2] Listener-side dispatch failed for " + run.getFullDisplayName(), e);
         }
     }
 

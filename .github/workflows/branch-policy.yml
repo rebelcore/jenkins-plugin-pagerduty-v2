@@ -1,0 +1,56 @@
+---
+# Enforces the gitflow model on every pull request.
+#
+#   feature/*  ->  develop   (all work, including fixes and docs)
+#   develop    ->  master    (releases only)
+#
+# The master ruleset also restricts who can merge, but a ruleset cannot say
+# "only from develop". This check can, and it is a required status check on
+# master, so a pull request from any other branch cannot be merged there.
+name: Branch Policy
+
+on:
+  pull_request:
+    branches: [develop, master]
+    # `edited` covers a pull request whose target branch is changed after it
+    # was opened; the check has to run again for the new target.
+    types: [opened, synchronize, reopened, edited]
+
+permissions: {}
+
+jobs:
+  policy:
+    name: Branch policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Check source and target branches
+        env:
+          HEAD: ${{ github.head_ref }}
+          BASE: ${{ github.base_ref }}
+          # A fork can have a branch called develop too; only this
+          # repository's own develop is a release.
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          case "$BASE" in
+            master)
+              if [ "$HEAD" != "develop" ] || [ "$HEAD_REPO" != "$REPO" ]; then
+                echo "::error::Only $REPO's develop may be merged into master (got '$HEAD_REPO:$HEAD'). Open this pull request against develop."
+                exit 1
+              fi
+              ;;
+            develop)
+              case "$HEAD" in
+                # dependabot/* is the only exception, because Dependabot names
+                # its own branches.
+                feature/*|dependabot/*) ;;
+                *)
+                  echo "::error::Branch '$HEAD' does not follow the naming rule. Work happens on feature/<short-description> branches."
+                  exit 1
+                  ;;
+              esac
+              ;;
+          esac
+          echo "$HEAD -> $BASE is allowed."

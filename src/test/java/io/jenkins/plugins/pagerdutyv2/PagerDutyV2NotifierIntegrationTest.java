@@ -1,23 +1,38 @@
+// Copyright 2010 Rebel Media
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package io.jenkins.plugins.pagerdutyv2;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import hudson.EnvVars;
-import hudson.Launcher;
-import hudson.model.*;
-import hudson.tasks.Builder;
-import hudson.util.Secret;
-import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.jvnet.hudson.test.JenkinsRule;
-import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
-
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
-
+import hudson.Launcher;
+import hudson.model.AbstractBuild;
+import hudson.model.BuildListener;
+import hudson.model.FreeStyleBuild;
+import hudson.model.FreeStyleProject;
+import hudson.model.Result;
+import hudson.tasks.Builder;
+import hudson.util.Secret;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -27,8 +42,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
 @WithJenkins
 public class PagerDutyV2NotifierIntegrationTest {
@@ -62,11 +80,7 @@ public class PagerDutyV2NotifierIntegrationTest {
 
         // Configure global routing key + endpoint
         StringCredentialsImpl cred = new StringCredentialsImpl(
-                CredentialsScope.GLOBAL,
-                "pd-routing-key",
-                "PagerDuty routing key",
-                Secret.fromString("rk_test_123")
-        );
+                CredentialsScope.GLOBAL, "pd-routing-key", "PagerDuty routing key", Secret.fromString("rk_test_123"));
         SystemCredentialsProvider.getInstance().getCredentials().add(cred);
         SystemCredentialsProvider.getInstance().save();
 
@@ -110,9 +124,9 @@ public class PagerDutyV2NotifierIntegrationTest {
         PagerDutyV2RunAction a1 = b1.getAction(PagerDutyV2RunAction.class);
         assertNotNull(a1, "Trigger build should store PagerDutyV2RunAction");
         assertTrue(a1.isOpen(), "Incident should be open after trigger");
-        assertFalse(a1.getPayloadJson().contains("rk_test_123"),
-                "Persisted payload must not contain the routing key");
-        assertFalse(a1.getPayloadJson().contains("routing_key"),
+        assertFalse(a1.getPayloadJson().contains("rk_test_123"), "Persisted payload must not contain the routing key");
+        assertFalse(
+                a1.getPayloadJson().contains("routing_key"),
                 "Persisted payload must not contain a routing_key field at all");
 
         // Build #2 succeeds -> resolve (remove failing builder)
@@ -135,10 +149,7 @@ public class PagerDutyV2NotifierIntegrationTest {
         startServer();
 
         StringCredentialsImpl cred = new StringCredentialsImpl(
-                CredentialsScope.GLOBAL,
-                "pd-routing-key",
-                "PagerDuty routing key",
-                Secret.fromString("rk_test_123"));
+                CredentialsScope.GLOBAL, "pd-routing-key", "PagerDuty routing key", Secret.fromString("rk_test_123"));
         SystemCredentialsProvider.getInstance().getCredentials().add(cred);
         SystemCredentialsProvider.getInstance().save();
 
@@ -155,8 +166,7 @@ public class PagerDutyV2NotifierIntegrationTest {
         p.getBuildersList().add(new FailBuilder());
         FreeStyleBuild b = j.buildAndAssertStatus(Result.FAILURE, p);
         assertEquals(0, requestBodies.size(), "no events while publisher absent");
-        assertNull(b.getAction(PagerDutyV2HandledAction.class),
-                "no HandledAction since publisher never ran");
+        assertNull(b.getAction(PagerDutyV2HandledAction.class), "no HandledAction since publisher never ran");
 
         PagerDutyV2Notifier n = new PagerDutyV2Notifier();
         n.setService("svc-a");
@@ -165,12 +175,12 @@ public class PagerDutyV2NotifierIntegrationTest {
 
         new PagerDutyV2RunListener().onFinalized(b);
 
-        assertEquals(1, requestBodies.size(),
-                "listener should dispatch trigger when publisher didn't run");
+        assertEquals(1, requestBodies.size(), "listener should dispatch trigger when publisher didn't run");
         Map<String, Object> trigger = MAPPER.readValue(requestBodies.get(0), Map.class);
         assertEquals("trigger", trigger.get("event_action"));
         assertEquals("rk_test_123", trigger.get("routing_key"));
-        assertNotNull(b.getAction(PagerDutyV2HandledAction.class),
+        assertNotNull(
+                b.getAction(PagerDutyV2HandledAction.class),
                 "listener path must also stamp HandledAction so it doesn't double-fire");
     }
 
@@ -179,10 +189,7 @@ public class PagerDutyV2NotifierIntegrationTest {
         startServer();
 
         StringCredentialsImpl cred = new StringCredentialsImpl(
-                CredentialsScope.GLOBAL,
-                "pd-routing-key",
-                "PagerDuty routing key",
-                Secret.fromString("rk_test_123"));
+                CredentialsScope.GLOBAL, "pd-routing-key", "PagerDuty routing key", Secret.fromString("rk_test_123"));
         SystemCredentialsProvider.getInstance().getCredentials().add(cred);
         SystemCredentialsProvider.getInstance().save();
 
@@ -201,13 +208,11 @@ public class PagerDutyV2NotifierIntegrationTest {
         // Normal path: publisher runs, fires trigger, stamps HandledAction.
         FreeStyleBuild b = j.buildAndAssertStatus(Result.FAILURE, p);
         assertEquals(1, requestBodies.size());
-        assertNotNull(b.getAction(PagerDutyV2HandledAction.class),
-                "publisher should have stamped the marker");
+        assertNotNull(b.getAction(PagerDutyV2HandledAction.class), "publisher should have stamped the marker");
 
         // Now manually invoke the listener — must be a no-op.
         new PagerDutyV2RunListener().onFinalized(b);
-        assertEquals(1, requestBodies.size(),
-                "listener must not double-fire when publisher already handled");
+        assertEquals(1, requestBodies.size(), "listener must not double-fire when publisher already handled");
     }
 
     @Test
@@ -215,11 +220,7 @@ public class PagerDutyV2NotifierIntegrationTest {
         startServer();
 
         StringCredentialsImpl cred = new StringCredentialsImpl(
-                CredentialsScope.GLOBAL,
-                "pd-routing-key",
-                "PagerDuty routing key",
-                Secret.fromString("rk_test_123")
-        );
+                CredentialsScope.GLOBAL, "pd-routing-key", "PagerDuty routing key", Secret.fromString("rk_test_123"));
         SystemCredentialsProvider.getInstance().getCredentials().add(cred);
         SystemCredentialsProvider.getInstance().save();
 
@@ -255,11 +256,7 @@ public class PagerDutyV2NotifierIntegrationTest {
         startServer();
 
         StringCredentialsImpl cred = new StringCredentialsImpl(
-                CredentialsScope.GLOBAL,
-                "pd-routing-key",
-                "PagerDuty routing key",
-                Secret.fromString("rk_test_123")
-        );
+                CredentialsScope.GLOBAL, "pd-routing-key", "PagerDuty routing key", Secret.fromString("rk_test_123"));
         SystemCredentialsProvider.getInstance().getCredentials().add(cred);
         SystemCredentialsProvider.getInstance().save();
 
@@ -303,14 +300,14 @@ public class PagerDutyV2NotifierIntegrationTest {
         @Override
         public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) {
             listener.getLogger().println("java.nio.channels.ClosedChannelException");
-            listener.getLogger().println(
-                    "java.io.IOException: Backing channel 'JNLP4-connect connection from "
+            listener.getLogger()
+                    .println("java.io.IOException: Backing channel 'JNLP4-connect connection from "
                             + "10.248.88.35/10.248.88.35:34716' is disconnected.");
             return false;
         }
     }
 
-    private static class CaptureHandler implements HttpHandler {
+    private static final class CaptureHandler implements HttpHandler {
         private final List<String> out;
 
         private CaptureHandler(List<String> out) {

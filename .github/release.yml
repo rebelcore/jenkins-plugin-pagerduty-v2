@@ -1,0 +1,51 @@
+# Groups the auto-generated "What's Changed" list that GitHub appends beneath
+# the handwritten notes from CHANGELOG.md.
+#
+# This is where internal changes are documented. They are derived from merged
+# pull requests rather than written by hand, which means they are always
+# complete, always attributed, and impossible to forget — none of which is true
+# of a hand-maintained "Internal" changelog section.
+#
+# The categories are driven by PR labels, so labelling a pull request is the
+# whole of the effort. Anything unlabelled still appears, under "Other changes".
+
+changelog:
+  exclude:
+    labels:
+      # Already described in the handwritten notes above, or genuinely not worth
+      # a line in a release.
+      - changelog-ignore
+      - duplicate
+      - invalid
+      - question
+    authors:
+      - dependabot
+      - github-actions
+
+  categories:
+    - title: Features
+      labels: [enhancement, feature]
+
+    - title: Bug fixes
+      labels: [bug, fix]
+
+    - title: Security
+      labels: [security]
+
+    - title: Performance
+      labels: [performance]
+
+    - title: Documentation
+      labels: [documentation]
+
+    - title: Internal
+      labels: [refactor, chore, ci, test, build]
+
+    # Dependency bumps are grouped last and their authors are excluded above,
+    # so this catches human-raised ones only. A release should not open with
+    # twenty lines of version numbers.
+    - title: Dependencies
+      labels: [dependencies]
+
+    - title: Other changes
+      labels: ["*"]

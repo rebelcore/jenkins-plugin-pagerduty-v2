@@ -1,5 +1,23 @@
-target/
-work/
+# Editors and OS.
 .idea/
-*.iml
+.vscode/
 .DS_Store
+*.iml
+*.ipr
+*.iws
+.settings/
+.classpath
+.project
+*.code-workspace
+
+# Maven's build output. The wrapper under .mvn/wrapper/ IS committed.
+target/
+dist/
+# Written by flatten-maven-plugin on every build; pom.xml is the source.
+.flattened-pom.xml
+
+# `make run` keeps the development Jenkins' home here.
+work/
+
+# Local configuration.
+.env

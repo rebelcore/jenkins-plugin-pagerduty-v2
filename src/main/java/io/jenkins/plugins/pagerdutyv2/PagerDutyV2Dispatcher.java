@@ -1,3 +1,16 @@
+// Copyright 2010 Rebel Media
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package io.jenkins.plugins.pagerdutyv2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,7 +21,6 @@ import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.util.Secret;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
@@ -71,14 +83,13 @@ final class PagerDutyV2Dispatcher {
     /**
      * Run the trigger/resolve decision for {@code run} and dispatch any
      * resulting event to PagerDuty. Marks the run with
-     * {@link PagerDutyV2HandledAction} regardless of outcome (including
-     * "skipped" cases) so the {@link PagerDutyV2RunListener} fallback does
-     * not double-fire.
+     * {@link PagerDutyV2HandledAction} whatever the outcome, including
+     * "skipped" cases and a send that fails, so the
+     * {@link PagerDutyV2RunListener} fallback does not dispatch it again.
      */
-    static void dispatch(@NonNull Run<?, ?> run,
-                         @NonNull EnvVars env,
-                         @NonNull Config c,
-                         @NonNull TaskListener listener) throws IOException {
+    static void dispatch(
+            @NonNull Run<?, ?> run, @NonNull EnvVars env, @NonNull Config c, @NonNull TaskListener listener)
+            throws IOException {
         Result result = run.getResult();
         if (result == null) {
             return; // build still in progress; nothing to do
@@ -97,28 +108,6 @@ final class PagerDutyV2Dispatcher {
             return;
         }
 
-        Secret rkSecret = null;
-        if (c.sandboxMode) {
-            Secret sandbox = cfg.resolveSandboxRoutingKey();
-            if (sandbox != null) {
-                rkSecret = sandbox;
-                listener.getLogger().println("[pagerduty-v2] Sandbox mode enabled; using sandbox routing key.");
-            } else {
-                listener.getLogger().println(
-                        "[pagerduty-v2] Sandbox mode enabled but no sandbox routing key configured; "
-                                + "falling back to primary routing key.");
-            }
-        }
-        if (rkSecret == null) {
-            rkSecret = cfg.resolveRoutingKey();
-        }
-        if (rkSecret == null) {
-            listener.getLogger().println("[pagerduty-v2] No routing key credential configured; skipping.");
-            markHandled(run, "no-routing-key");
-            return;
-        }
-
-        String routingKey = rkSecret.getPlainText();
         PagerDutyV2Client client = new PagerDutyV2Client(cfg.getEndpointUrl());
 
         boolean shouldTrigger = shouldTriggerFor(c, result);
@@ -127,16 +116,43 @@ final class PagerDutyV2Dispatcher {
         if (shouldTrigger) {
             int streak = consecutiveTriggerStreak(c, run);
             if (streak < c.consecutiveBuildsBeforeTrigger) {
-                listener.getLogger().println("[pagerduty-v2] Trigger condition met but streak "
-                        + streak + "/" + c.consecutiveBuildsBeforeTrigger + " not reached; not triggering yet.");
+                listener.getLogger()
+                        .println("[pagerduty-v2] Trigger condition met but streak " + streak + "/"
+                                + c.consecutiveBuildsBeforeTrigger + " not reached; not triggering yet.");
                 markHandled(run, "streak-not-reached");
                 return;
             }
 
             if (openAction != null) {
-                listener.getLogger().println("[pagerduty-v2] Open incident already exists (dedup_key="
-                        + openAction.getDedupKey() + "); not triggering again.");
+                listener.getLogger()
+                        .println("[pagerduty-v2] Open incident already exists (dedup_key=" + openAction.getDedupKey()
+                                + "); not triggering again.");
                 markHandled(run, "open-incident-exists");
+                return;
+            }
+
+            // The job's sandbox setting picks the integration for a new incident. The choice is
+            // recorded on the build, because the resolve has to go to the same integration.
+            boolean sandbox = false;
+            Secret rkSecret = null;
+            if (c.sandboxMode) {
+                Secret sandboxKey = cfg.resolveSandboxRoutingKey();
+                if (sandboxKey != null) {
+                    rkSecret = sandboxKey;
+                    sandbox = true;
+                    listener.getLogger().println("[pagerduty-v2] Sandbox mode enabled; using sandbox routing key.");
+                } else {
+                    listener.getLogger()
+                            .println("[pagerduty-v2] Sandbox mode enabled but no sandbox routing key configured; "
+                                    + "falling back to primary routing key.");
+                }
+            }
+            if (rkSecret == null) {
+                rkSecret = cfg.resolveRoutingKey();
+            }
+            if (rkSecret == null) {
+                listener.getLogger().println("[pagerduty-v2] No routing key credential configured; skipping.");
+                markHandled(run, "no-routing-key");
                 return;
             }
 
@@ -153,8 +169,7 @@ final class PagerDutyV2Dispatcher {
             boolean executorDisconnected = !Result.SUCCESS.equals(result) && isExecutorDisconnected(run);
             if (executorDisconnected && !c.useCustomSummary) {
                 Object summary = payload.get("summary");
-                if (summary instanceof String s
-                        && !s.toLowerCase(Locale.ROOT).contains("executor disconnected")) {
+                if (summary instanceof String s && !s.toLowerCase(Locale.ROOT).contains("executor disconnected")) {
                     payload.put("summary", s + " (executor disconnected)");
                 }
             }
@@ -185,25 +200,37 @@ final class PagerDutyV2Dispatcher {
                 }
             }
 
-            Map<String, Object> body = PayloadBuilder.buildBody(routingKey, "trigger", dedupKey, payload);
+            Map<String, Object> body = PayloadBuilder.buildBody(rkSecret.getPlainText(), "trigger", dedupKey, payload);
+            // Marked before sending: when the send fails, the fallback listener must not dispatch,
+            // and retry, the same event a second time.
+            markHandled(run, "trigger");
             client.postEvent(body);
 
             String payloadJson = MAPPER.writeValueAsString(payload);
-            run.addAction(new PagerDutyV2RunAction(dedupKey, payloadJson));
+            PagerDutyV2RunAction action = new PagerDutyV2RunAction(dedupKey, payloadJson, sandbox);
+            run.addAction(action);
+            action.keepOwnerWhileOpen();
             run.save();
 
             listener.getLogger().println("[pagerduty-v2] Trigger sent (dedup_key=" + dedupKey + ")");
-            markHandled(run, "triggered");
             return;
         }
 
         if (c.resolveOnBackToNormal && openAction != null && Result.SUCCESS.equals(result)) {
+            Secret rkSecret = routingKeyThatOpened(openAction, cfg);
+            if (rkSecret == null) {
+                logResolveKeyMissing(openAction, listener);
+                markHandled(run, "no-routing-key-for-resolve");
+                return;
+            }
             @SuppressWarnings("unchecked")
             Map<String, Object> storedPayload = MAPPER.readValue(openAction.getPayloadJson(), Map.class);
             Map<String, Object> resolveBody = PayloadBuilder.buildBody(
-                    routingKey, "resolve", openAction.getDedupKey(), storedPayload);
+                    rkSecret.getPlainText(), "resolve", openAction.getDedupKey(), storedPayload);
+            markHandled(run, "resolve");
             client.postEvent(resolveBody);
             openAction.markResolved();
+            openAction.stopKeepingOwner();
             Run<?, ?> owner = openAction.getOwner();
             if (owner != null) {
                 owner.save();
@@ -211,11 +238,28 @@ final class PagerDutyV2Dispatcher {
                 run.save();
             }
             listener.getLogger().println("[pagerduty-v2] Resolve sent (dedup_key=" + openAction.getDedupKey() + ")");
-            markHandled(run, "resolved");
             return;
         }
 
         markHandled(run, "no-action");
+    }
+
+    /**
+     * The routing key the incident's trigger used: the sandbox key if it went to the sandbox
+     * integration, the primary key otherwise. Null when that key is no longer configured. A resolve
+     * sent with the other key would reach an integration that never saw the incident, which accepts
+     * it and drops it, so the incident would stay open while the build said it was resolved.
+     */
+    static @CheckForNull Secret routingKeyThatOpened(
+            @NonNull PagerDutyV2RunAction open, @NonNull PagerDutyV2GlobalConfiguration cfg) {
+        return open.isSandbox() ? cfg.resolveSandboxRoutingKey() : cfg.resolveRoutingKey();
+    }
+
+    static void logResolveKeyMissing(@NonNull PagerDutyV2RunAction open, @NonNull TaskListener listener) {
+        listener.getLogger()
+                .println("[pagerduty-v2] The " + (open.isSandbox() ? "sandbox" : "primary")
+                        + " routing key that opened this incident (dedup_key=" + open.getDedupKey()
+                        + ") is no longer configured; not resolving it.");
     }
 
     private static void markHandled(@NonNull Run<?, ?> run, @CheckForNull String reason) {
@@ -225,11 +269,21 @@ final class PagerDutyV2Dispatcher {
     }
 
     static boolean shouldTriggerFor(@NonNull Config c, @NonNull Result result) {
-        if (Result.SUCCESS.equals(result)) return c.triggerOnSuccess;
-        if (Result.FAILURE.equals(result)) return c.triggerOnFailure;
-        if (Result.UNSTABLE.equals(result)) return c.triggerOnUnstable;
-        if (Result.ABORTED.equals(result)) return c.triggerOnAbort;
-        if (Result.NOT_BUILT.equals(result)) return c.triggerOnNotBuilt;
+        if (Result.SUCCESS.equals(result)) {
+            return c.triggerOnSuccess;
+        }
+        if (Result.FAILURE.equals(result)) {
+            return c.triggerOnFailure;
+        }
+        if (Result.UNSTABLE.equals(result)) {
+            return c.triggerOnUnstable;
+        }
+        if (Result.ABORTED.equals(result)) {
+            return c.triggerOnAbort;
+        }
+        if (Result.NOT_BUILT.equals(result)) {
+            return c.triggerOnNotBuilt;
+        }
         return false;
     }
 
@@ -237,14 +291,16 @@ final class PagerDutyV2Dispatcher {
         int count = 0;
         for (Run<?, ?> r = run; r != null; r = r.getPreviousBuild()) {
             Result res = r.getResult();
-            if (res == null) break;
-            if (shouldTriggerFor(c, res)) count++;
-            else break;
+            if (res == null || !shouldTriggerFor(c, res)) {
+                break;
+            }
+            count++;
         }
         return count;
     }
 
-    private static @CheckForNull PagerDutyV2RunAction findMostRecentOpenAction(@NonNull Run<?, ?> run) {
+    /** The newest open incident in the job's history, if any. Also used by the pipeline step. */
+    static @CheckForNull PagerDutyV2RunAction findMostRecentOpenAction(@NonNull Run<?, ?> run) {
         for (Run<?, ?> r = run; r != null; r = r.getPreviousBuild()) {
             PagerDutyV2RunAction a = r.getAction(PagerDutyV2RunAction.class);
             if (a != null && a.isOpen()) {
@@ -255,11 +311,15 @@ final class PagerDutyV2Dispatcher {
     }
 
     static @NonNull String getConsoleLogTail(@NonNull Run<?, ?> run, int maxLines, int maxChars) {
-        if (maxLines <= 0 || maxChars <= 0) return "";
+        if (maxLines <= 0 || maxChars <= 0) {
+            return "";
+        }
         try {
             List<String> lines = run.getLog(Math.max(1, maxLines));
             String joined = String.join("\n", lines);
-            if (joined.length() <= maxChars) return joined;
+            if (joined.length() <= maxChars) {
+                return joined;
+            }
             return joined.substring(joined.length() - maxChars);
         } catch (IOException | RuntimeException e) {
             return "";
@@ -267,10 +327,13 @@ final class PagerDutyV2Dispatcher {
     }
 
     static boolean isExecutorDisconnected(@NonNull Run<?, ?> run) {
-        String tail = getConsoleLogTail(run, FAILURE_SIGNATURE_SCAN_LINES, FAILURE_SIGNATURE_SCAN_MAX_CHARS);
-        if (tail.isEmpty()) return false;
+        return hasDisconnectSignature(
+                getConsoleLogTail(run, FAILURE_SIGNATURE_SCAN_LINES, FAILURE_SIGNATURE_SCAN_MAX_CHARS));
+    }
 
-        String n = tail.toLowerCase(Locale.ROOT);
+    /** Whether console output contains one of the messages Jenkins logs when a build loses its agent. */
+    static boolean hasDisconnectSignature(@NonNull String consoleTail) {
+        String n = consoleTail.toLowerCase(Locale.ROOT);
         return n.contains("java.nio.channels.closedchannelexception")
                 || (n.contains("backing channel") && n.contains("is disconnected"))
                 || n.contains("jnlp4-connect connection")
