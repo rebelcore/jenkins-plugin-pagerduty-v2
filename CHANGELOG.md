@@ -21,6 +21,7 @@ release notes from pull request labels, not here.
 * [BUGFIX] When sending an event fails, the disconnect fallback no longer sends it again, which doubled the retries and could leave a green build red without its resolve.
 * [BUGFIX] The build that opened an incident is kept until the incident is resolved. Build retention could delete it first, leaving the incident open forever and letting the next failure open a second one.
 * [BUGFIX] Matrix jobs no longer send an extra event for the parent build on top of the events from their configurations.
+* [BUGFIX] The `pagerDutyV2` pipeline step no longer triggers a second incident while one is already open for the job.
 
 ## 1.1.0 / 2026-04-28
 

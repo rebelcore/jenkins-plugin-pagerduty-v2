@@ -272,7 +272,8 @@ final class PagerDutyV2Dispatcher {
         return count;
     }
 
-    private static @CheckForNull PagerDutyV2RunAction findMostRecentOpenAction(@NonNull Run<?, ?> run) {
+    /** The newest open incident in the job's history, if any. Also used by the pipeline step. */
+    static @CheckForNull PagerDutyV2RunAction findMostRecentOpenAction(@NonNull Run<?, ?> run) {
         for (Run<?, ?> r = run; r != null; r = r.getPreviousBuild()) {
             PagerDutyV2RunAction a = r.getAction(PagerDutyV2RunAction.class);
             if (a != null && a.isOpen()) {

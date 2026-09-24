@@ -165,6 +165,7 @@ pagerDutyV2(action: 'resolve')
 
 - Resolve searches backward through the job's build history to find the most recent **open** trigger action and resolves it.
 - If none exists, it prints `No open incident found; nothing to resolve.`
+- Trigger does nothing while an incident is already open for the job. Like the post-build action, it logs `Open incident already exists ...; not triggering again.`
 
 Example:
 
