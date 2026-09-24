@@ -1,1 +1,8 @@
-*   @DylanUnderwood
+# Code owners for this repository.
+#
+# The develop and master rulesets both require code owner review. That rule is
+# silent when no CODEOWNERS file exists — GitHub finds no owner, requires
+# nobody, and the pull request merges having satisfied a rule that never
+# applied. This file is what gives that setting something to enforce.
+
+* @DylanUnderwood

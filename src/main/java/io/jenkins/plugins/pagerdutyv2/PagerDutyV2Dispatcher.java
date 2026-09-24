@@ -1,3 +1,16 @@
+// Copyright 2010 Rebel Media
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package io.jenkins.plugins.pagerdutyv2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,7 +21,6 @@ import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.util.Secret;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
@@ -75,10 +87,9 @@ final class PagerDutyV2Dispatcher {
      * "skipped" cases) so the {@link PagerDutyV2RunListener} fallback does
      * not double-fire.
      */
-    static void dispatch(@NonNull Run<?, ?> run,
-                         @NonNull EnvVars env,
-                         @NonNull Config c,
-                         @NonNull TaskListener listener) throws IOException {
+    static void dispatch(
+            @NonNull Run<?, ?> run, @NonNull EnvVars env, @NonNull Config c, @NonNull TaskListener listener)
+            throws IOException {
         Result result = run.getResult();
         if (result == null) {
             return; // build still in progress; nothing to do
@@ -104,8 +115,8 @@ final class PagerDutyV2Dispatcher {
                 rkSecret = sandbox;
                 listener.getLogger().println("[pagerduty-v2] Sandbox mode enabled; using sandbox routing key.");
             } else {
-                listener.getLogger().println(
-                        "[pagerduty-v2] Sandbox mode enabled but no sandbox routing key configured; "
+                listener.getLogger()
+                        .println("[pagerduty-v2] Sandbox mode enabled but no sandbox routing key configured; "
                                 + "falling back to primary routing key.");
             }
         }
@@ -127,15 +138,17 @@ final class PagerDutyV2Dispatcher {
         if (shouldTrigger) {
             int streak = consecutiveTriggerStreak(c, run);
             if (streak < c.consecutiveBuildsBeforeTrigger) {
-                listener.getLogger().println("[pagerduty-v2] Trigger condition met but streak "
-                        + streak + "/" + c.consecutiveBuildsBeforeTrigger + " not reached; not triggering yet.");
+                listener.getLogger()
+                        .println("[pagerduty-v2] Trigger condition met but streak " + streak + "/"
+                                + c.consecutiveBuildsBeforeTrigger + " not reached; not triggering yet.");
                 markHandled(run, "streak-not-reached");
                 return;
             }
 
             if (openAction != null) {
-                listener.getLogger().println("[pagerduty-v2] Open incident already exists (dedup_key="
-                        + openAction.getDedupKey() + "); not triggering again.");
+                listener.getLogger()
+                        .println("[pagerduty-v2] Open incident already exists (dedup_key=" + openAction.getDedupKey()
+                                + "); not triggering again.");
                 markHandled(run, "open-incident-exists");
                 return;
             }
@@ -153,8 +166,7 @@ final class PagerDutyV2Dispatcher {
             boolean executorDisconnected = !Result.SUCCESS.equals(result) && isExecutorDisconnected(run);
             if (executorDisconnected && !c.useCustomSummary) {
                 Object summary = payload.get("summary");
-                if (summary instanceof String s
-                        && !s.toLowerCase(Locale.ROOT).contains("executor disconnected")) {
+                if (summary instanceof String s && !s.toLowerCase(Locale.ROOT).contains("executor disconnected")) {
                     payload.put("summary", s + " (executor disconnected)");
                 }
             }
@@ -200,8 +212,8 @@ final class PagerDutyV2Dispatcher {
         if (c.resolveOnBackToNormal && openAction != null && Result.SUCCESS.equals(result)) {
             @SuppressWarnings("unchecked")
             Map<String, Object> storedPayload = MAPPER.readValue(openAction.getPayloadJson(), Map.class);
-            Map<String, Object> resolveBody = PayloadBuilder.buildBody(
-                    routingKey, "resolve", openAction.getDedupKey(), storedPayload);
+            Map<String, Object> resolveBody =
+                    PayloadBuilder.buildBody(routingKey, "resolve", openAction.getDedupKey(), storedPayload);
             client.postEvent(resolveBody);
             openAction.markResolved();
             Run<?, ?> owner = openAction.getOwner();
@@ -225,11 +237,21 @@ final class PagerDutyV2Dispatcher {
     }
 
     static boolean shouldTriggerFor(@NonNull Config c, @NonNull Result result) {
-        if (Result.SUCCESS.equals(result)) return c.triggerOnSuccess;
-        if (Result.FAILURE.equals(result)) return c.triggerOnFailure;
-        if (Result.UNSTABLE.equals(result)) return c.triggerOnUnstable;
-        if (Result.ABORTED.equals(result)) return c.triggerOnAbort;
-        if (Result.NOT_BUILT.equals(result)) return c.triggerOnNotBuilt;
+        if (Result.SUCCESS.equals(result)) {
+            return c.triggerOnSuccess;
+        }
+        if (Result.FAILURE.equals(result)) {
+            return c.triggerOnFailure;
+        }
+        if (Result.UNSTABLE.equals(result)) {
+            return c.triggerOnUnstable;
+        }
+        if (Result.ABORTED.equals(result)) {
+            return c.triggerOnAbort;
+        }
+        if (Result.NOT_BUILT.equals(result)) {
+            return c.triggerOnNotBuilt;
+        }
         return false;
     }
 
@@ -237,9 +259,10 @@ final class PagerDutyV2Dispatcher {
         int count = 0;
         for (Run<?, ?> r = run; r != null; r = r.getPreviousBuild()) {
             Result res = r.getResult();
-            if (res == null) break;
-            if (shouldTriggerFor(c, res)) count++;
-            else break;
+            if (res == null || !shouldTriggerFor(c, res)) {
+                break;
+            }
+            count++;
         }
         return count;
     }
@@ -255,11 +278,15 @@ final class PagerDutyV2Dispatcher {
     }
 
     static @NonNull String getConsoleLogTail(@NonNull Run<?, ?> run, int maxLines, int maxChars) {
-        if (maxLines <= 0 || maxChars <= 0) return "";
+        if (maxLines <= 0 || maxChars <= 0) {
+            return "";
+        }
         try {
             List<String> lines = run.getLog(Math.max(1, maxLines));
             String joined = String.join("\n", lines);
-            if (joined.length() <= maxChars) return joined;
+            if (joined.length() <= maxChars) {
+                return joined;
+            }
             return joined.substring(joined.length() - maxChars);
         } catch (IOException | RuntimeException e) {
             return "";
@@ -268,7 +295,9 @@ final class PagerDutyV2Dispatcher {
 
     static boolean isExecutorDisconnected(@NonNull Run<?, ?> run) {
         String tail = getConsoleLogTail(run, FAILURE_SIGNATURE_SCAN_LINES, FAILURE_SIGNATURE_SCAN_MAX_CHARS);
-        if (tail.isEmpty()) return false;
+        if (tail.isEmpty()) {
+            return false;
+        }
 
         String n = tail.toLowerCase(Locale.ROOT);
         return n.contains("java.nio.channels.closedchannelexception")

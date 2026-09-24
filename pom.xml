@@ -1,53 +1,121 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The build for PagerDuty v2.
+
+  Everything is pinned: every plugin, every dependency, the Maven version (in
+  .mvn/wrapper/maven-wrapper.properties) and the JDK (25, checked by the
+  enforcer). Two builds of the same commit produce byte-identical jars.
+
+  The version is not written here. It is the VERSION file, which is also what
+  CI turns into the release tag; the Makefile and CI pass it in as
+  -Drevision=<VERSION>. A bare `./mvnw verify` therefore builds
+  0.0.0-SNAPSHOT, which can never be mistaken for a release.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
+  <!--
+    The Jenkins plugin parent POM. It brings the hpi packaging, jenkins-core
+    (provided by Jenkins at runtime, never bundled), the test harness, JUnit,
+    Mockito, SpotBugs and Jenkins' own enforcer rules, and pins every plugin
+    version. Dependabot keeps it current.
+  -->
   <parent>
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>plugin</artifactId>
     <version>6.2236.v12dd4c483242</version>
-    <relativePath/>
+    <relativePath />
   </parent>
 
+  <!-- Jenkins plugins hosted by the Jenkins project must use this groupId, and
+       using it everywhere means a plugin can move there without a rename. -->
   <groupId>io.jenkins.plugins</groupId>
   <artifactId>pagerduty-v2</artifactId>
-  <version>1.1.0</version>
+  <version>${revision}</version>
   <packaging>hpi</packaging>
 
   <name>PagerDuty v2</name>
-  <description>Sends PagerDuty Events API v2 trigger/resolve events and replays the trigger payload on resolve.</description>
+  <description>Sends PagerDuty Events API v2 trigger and resolve events from Jenkins builds, replaying the trigger payload on resolve.</description>
+  <url>https://github.com/rebelcore/jenkins-plugin-pagerduty-v2</url>
+
+  <licenses>
+    <license>
+      <name>Apache-2.0</name>
+      <url>https://github.com/rebelcore/jenkins-plugin-pagerduty-v2/blob/master/LICENSE</url>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <name>Rebel Core</name>
+      <email>github+jenkins-plugin-pagerduty@rebelcore.org</email>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:https://github.com/rebelcore/jenkins-plugin-pagerduty-v2.git</connection>
+    <developerConnection>scm:git:https://github.com/rebelcore/jenkins-plugin-pagerduty-v2.git</developerConnection>
+    <url>https://github.com/rebelcore/jenkins-plugin-pagerduty-v2</url>
+    <tag>HEAD</tag>
+  </scm>
 
   <properties>
-    <!-- Build against a recent Jenkins LTS line -->
-    <jenkins.version>2.541.1</jenkins.version>
+    <!-- Overridden by the Makefile and CI with the contents of VERSION. -->
+    <revision>0.0.0-SNAPSHOT</revision>
+
+    <!-- Reproducible builds: every file in the jar gets this timestamp instead
+         of the time of the build. Any fixed value works; it is the date the
+         project was created and never needs to change. -->
+    <project.build.outputTimestamp>2026-01-27T00:00:00Z</project.build.outputTimestamp>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+    <!-- The share of lines the tests must cover, checked by `verify`. Start
+         where the suite actually is and raise it; never lower it. -->
+    <coverage.floor>0.51</coverage.floor>
+
+    <!-- Shared by every Rebel Media Java project, Fabric mods included. -->
+    <palantir-java-format.version>2.98.0</palantir-java-format.version>
+    <checkstyle.version>14.1.0</checkstyle.version>
+
+    <!-- The oldest Jenkins LTS this plugin supports. It decides the Java
+         release the plugin is compiled for (the parent reads it from
+         jenkins-core) and which plugin BOM line applies below. -->
+    <jenkins.version>2.568.3</jenkins.version>
+    <!-- The parent ships Spotless switched off; the Rebel Media standard
+         switches it on. -->
+    <spotless.check.skip>false</spotless.check.skip>
+    <!-- The parent runs SpotBugs at the plugin's defaults (Default effort,
+         Medium threshold). This plugin handles credentials and posts to an
+         external service, so it asks for the most thorough analysis and
+         reports low-confidence findings too. -->
     <spotbugs.effort>Max</spotbugs.effort>
     <spotbugs.threshold>Low</spotbugs.threshold>
+    <!-- The JDKs the enforcer accepts: any from 25 up, so a plain `./mvnw` or
+         an IDE build works. The Makefile and CI narrow it to [25,26) through
+         JAVA_RANGE for anything that is released. -->
+    <java.range>[25,)</java.range>
   </properties>
 
   <dependencyManagement>
     <dependencies>
-      <!-- Plugin BOM: manages plugin dependency versions tested together; line must match jenkins.version -->
+      <!-- Versions of other Jenkins plugins that are tested together against
+           this LTS line. Depend on a plugin without a <version> and the BOM
+           supplies it. -->
       <dependency>
         <groupId>io.jenkins.tools.bom</groupId>
-        <artifactId>bom-2.541.x</artifactId>
-        <version>7002.v028a_3607ddc8</version>
+        <artifactId>bom-2.568.x</artifactId>
+        <version>7046.v43536164769c</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
     </dependencies>
   </dependencyManagement>
 
+  <!-- Other plugins this one needs at runtime. Versions come from the BOM. -->
   <dependencies>
-    <!-- Jenkins APIs -->
-    <dependency>
-      <groupId>org.jenkins-ci.main</groupId>
-      <artifactId>jenkins-core</artifactId>
-      <!-- Provided by Jenkins at runtime; do not bundle into the plugin -->
-      <scope>provided</scope>
-    </dependency>
-
-    <!-- Credentials: use Secret Text (StringCredentials) -->
+    <!-- The routing key is a Secret Text credential (StringCredentials),
+         looked up by ID. -->
     <dependency>
       <groupId>org.jenkins-ci.plugins</groupId>
       <artifactId>credentials</artifactId>
@@ -56,118 +124,237 @@
       <groupId>org.jenkins-ci.plugins</groupId>
       <artifactId>plain-credentials</artifactId>
     </dependency>
-
-    <!-- HTTP client wrapper -->
+    <!-- OkHttp, shared through Jenkins instead of bundled, posts the events. -->
     <dependency>
       <groupId>io.jenkins.plugins</groupId>
       <artifactId>okhttp-api</artifactId>
     </dependency>
-
-    <!-- Jackson API wrapper (provides com.fasterxml.jackson.* at runtime) -->
+    <!-- Jackson, shared the same way, builds and replays the JSON bodies. -->
     <dependency>
       <groupId>org.jenkins-ci.plugins</groupId>
       <artifactId>jackson2-api</artifactId>
     </dependency>
-
-    <!-- Pipeline step support -->
+    <!-- Only for the pagerDutyV2 pipeline step; freestyle jobs work without
+         Pipeline installed. -->
     <dependency>
       <groupId>org.jenkins-ci.plugins.workflow</groupId>
       <artifactId>workflow-step-api</artifactId>
       <optional>true</optional>
     </dependency>
-
-    <!--
-      Avoid javac warnings like:
-        unknown enum constant javax.annotation.meta.When.{ALWAYS,MAYBE}
-      These come from annotations in transitive deps referencing JSR-305 meta-annotations.
-    -->
-    <dependency>
-      <groupId>com.google.code.findbugs</groupId>
-      <artifactId>jsr305</artifactId>
-      <version>3.0.2</version>
-      <scope>provided</scope>
-    </dependency>
-
-    <!-- Tests -->
-    <dependency>
-      <groupId>org.jenkins-ci.main</groupId>
-      <artifactId>jenkins-test-harness</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-api</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-engine</artifactId>
-      <scope>test</scope>
-    </dependency>
   </dependencies>
 
   <build>
-    <plugins>
-      <!-- Keep Surefire happy under Java 17 -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.6.0</version>
-        <configuration>
-          <useModulePath>false</useModulePath>
-        </configuration>
-      </plugin>
 
-      <!-- Ensure we always have a .jpi in target/ even if a tool produced .hpi -->
+    <plugins>
+      <!-- The build refuses to start on the wrong JDK or Maven, rather than
+           failing later with an error that points somewhere else.
+
+           Locally any JDK from 25 up is accepted (java.range defaults to
+           [25,)), so a newer installed JDK just works. CI and releases pass
+           -Djava.range=[25,26) through the JAVA_RANGE variable: the JDK's major
+           version is written into every jar's manifest, so only a JDK 25
+           build is byte-identical to the released one. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-antrun-plugin</artifactId>
-        <version>3.2.0</version>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.6.3</version>
         <executions>
           <execution>
-            <id>ensure-jpi</id>
-            <phase>package</phase>
+            <id>rebel-media-rules</id>
             <goals>
-              <goal>run</goal>
+              <goal>enforce</goal>
             </goals>
             <configuration>
-              <target>
-                <copy file="${project.build.directory}/${project.build.finalName}.hpi"
-                      tofile="${project.build.directory}/${project.build.finalName}.jpi"
-                      overwrite="true"
-                      failonerror="false"/>
-              </target>
+              <rules>
+                <requireJavaVersion>
+                  <version>${java.range}</version>
+                  <message>This build needs a JDK in ${java.range}: point JAVA_HOME at one, or run `make verify-docker`.</message>
+                </requireJavaVersion>
+                <requireMavenVersion>
+                  <version>[3.9.6,)</version>
+                  <message>Use ./mvnw, which runs the Maven version in .mvn/wrapper/maven-wrapper.properties.</message>
+                </requireMavenVersion>
+              </rules>
             </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Replaces ${revision} with the real version in the POM that is
+           installed or published. Without it, anything that depends on this
+           artifact would see the literal text "${revision}". -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+        <version>1.8.0</version>
+        <configuration>
+          <flattenMode>resolveCiFriendliesOnly</flattenMode>
+          <updatePomFile>true</updatePomFile>
+        </configuration>
+        <executions>
+          <execution>
+            <id>flatten</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>flatten</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>flatten-clean</id>
+            <phase>clean</phase>
+            <goals>
+              <goal>clean</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Coverage. prepare-agent instruments the test run, report writes
+           target/site/jacoco/index.html, and check fails `verify` when line
+           coverage falls below coverage.floor. -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.15</version>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>check</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <rule>
+                  <element>BUNDLE</element>
+                  <limits>
+                    <limit>
+                      <counter>LINE</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>${coverage.floor}</minimum>
+                    </limit>
+                  </limits>
+                </rule>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Formatting: palantir-java-format, configured exactly as the Jenkins
+           plugin parent POM configures it, so every Java project is formatted
+           the same way. combine.self="override" replaces the parent's
+           configuration instead of merging with it, so a plugin does not also
+           get the parent's POM sorting. `make fmt` rewrites the files. -->
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>3.10.2</version>
+        <configuration combine.self="override">
+          <java>
+            <palantirJavaFormat>
+              <version>${palantir-java-format.version}</version>
+            </palantirJavaFormat>
+            <importOrder />
+            <removeUnusedImports />
+            <endWithNewline />
+            <trimTrailingWhitespace />
+            <toggleOffOn />
+          </java>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Lint: what a formatter cannot fix. The rules live in
+           config/checkstyle/checkstyle.xml and are the same in every Java
+           project. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.6.0</version>
+        <configuration>
+          <configLocation>config/checkstyle/checkstyle.xml</configLocation>
+          <!-- src/ only. Generated sources (the Jenkins parent writes an
+               InjectedTest into target/) are not ours to lint. -->
+          <sourceDirectories>
+            <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
+          </sourceDirectories>
+          <testSourceDirectories>
+            <testSourceDirectory>${project.build.testSourceDirectory}</testSourceDirectory>
+          </testSourceDirectories>
+          <includeTestSourceDirectory>true</includeTestSourceDirectory>
+          <consoleOutput>true</consoleOutput>
+          <failOnViolation>true</failOnViolation>
+          <violationSeverity>warning</violationSeverity>
+        </configuration>
+        <dependencies>
+          <dependency>
+            <groupId>com.puppycrawl.tools</groupId>
+            <artifactId>checkstyle</artifactId>
+            <version>${checkstyle.version}</version>
+          </dependency>
+        </dependencies>
+        <executions>
+          <execution>
+            <id>checkstyle</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
           </execution>
         </executions>
       </plugin>
     </plugins>
   </build>
 
+  <!-- The parent POM, the plugin BOM and every Jenkins plugin are published
+       here, not on Maven Central. -->
   <repositories>
-    <!-- Jenkins artifacts (plugin parent POM, plugin deps) -->
     <repository>
       <id>repo.jenkins-ci.org</id>
       <url>https://repo.jenkins-ci.org/public/</url>
     </repository>
-
-    <!-- Incrementals are used for some Jenkins plugin/tooling versions (e.g., maven-hpi-plugin 3.x.vHASH) -->
-    <repository>
-      <id>repo.jenkins-ci.org.incrementals</id>
-      <url>https://repo.jenkins-ci.org/incrementals/</url>
-    </repository>
   </repositories>
-
   <pluginRepositories>
     <pluginRepository>
       <id>repo.jenkins-ci.org</id>
       <url>https://repo.jenkins-ci.org/public/</url>
     </pluginRepository>
-
-    <pluginRepository>
-      <id>repo.jenkins-ci.org.incrementals</id>
-      <url>https://repo.jenkins-ci.org/incrementals/</url>
-    </pluginRepository>
   </pluginRepositories>
 
+  <profiles>
+    <!-- palantir-java-format reaches into javac internals, and on JDK 27 it
+         fails with NoSuchFieldError before looking at any code. Local builds
+         are allowed on newer JDKs (see java.range), so there the format check
+         is skipped rather than failing the whole build; every other check
+         still runs. CI builds on JDK 25, where formatting is always enforced,
+         so nothing unformatted can be merged. Remove this profile once a
+         formatter release supports the newer JDK. -->
+    <profile>
+      <id>formatter-unsupported-jdk</id>
+      <activation>
+        <jdk>[27,)</jdk>
+      </activation>
+      <properties>
+        <spotless.check.skip>true</spotless.check.skip>
+        <spotless.apply.skip>true</spotless.apply.skip>
+      </properties>
+    </profile>
+  </profiles>
 </project>

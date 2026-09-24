@@ -1,3 +1,16 @@
+// Copyright 2010 Rebel Media
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package io.jenkins.plugins.pagerdutyv2;
 
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
@@ -10,6 +23,10 @@ import hudson.Extension;
 import hudson.security.ACL;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
@@ -18,11 +35,6 @@ import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest2;
 import org.kohsuke.stapler.verb.POST;
-
-import java.net.URI;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 /**
  * Global configuration for PagerDuty Events API v2.
@@ -212,10 +224,7 @@ public final class PagerDutyV2GlobalConfiguration extends GlobalConfiguration {
             return null;
         }
         List<StringCredentials> creds = CredentialsProvider.lookupCredentialsInItemGroup(
-                StringCredentials.class,
-                Jenkins.get(),
-                ACL.SYSTEM2,
-                Collections.<DomainRequirement>emptyList());
+                StringCredentials.class, Jenkins.get(), ACL.SYSTEM2, Collections.<DomainRequirement>emptyList());
         for (StringCredentials c : creds) {
             if (credentialId.equals(c.getId())) {
                 return c.getSecret();

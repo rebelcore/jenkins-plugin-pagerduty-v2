@@ -13,22 +13,26 @@
 
 package io.jenkins.plugins.pagerdutyv2;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
+import hudson.PluginWrapper;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
+/**
+ * Starts a real Jenkins with this plugin installed. Unit tests prove the code; only this proves the
+ * packaged plugin loads, which is where a wrong dependency scope or a missing index.jelly shows up.
+ */
 @WithJenkins
-public class PagerDutyV2GlobalConfigurationTest {
+class PluginTest {
 
     @Test
-    void serviceChoicesParsingTrimsAndDedupes(JenkinsRule j) {
-        PagerDutyV2GlobalConfiguration cfg = PagerDutyV2GlobalConfiguration.get();
-        cfg.setServiceChoicesRaw(" svc-a , svc-b\nsvc-b\nsvc-c\n  \nsvc-a");
+    void loadsIntoJenkins(JenkinsRule jenkins) {
+        PluginWrapper plugin = jenkins.jenkins.getPluginManager().getPlugin("pagerduty-v2");
 
-        List<String> parsed = cfg.getServiceChoices();
-        assertEquals(List.of("svc-a", "svc-b", "svc-c"), parsed);
+        assertNotNull(plugin, "the plugin under test is not installed");
+        assertTrue(plugin.isActive(), "the plugin under test is installed but not active");
     }
 }

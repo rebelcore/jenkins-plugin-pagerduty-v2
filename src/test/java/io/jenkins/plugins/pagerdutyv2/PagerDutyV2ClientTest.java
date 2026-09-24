@@ -1,11 +1,24 @@
+// Copyright 2010 Rebel Media
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package io.jenkins.plugins.pagerdutyv2;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import okhttp3.OkHttpClient;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -13,8 +26,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.*;
+import okhttp3.OkHttpClient;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 class PagerDutyV2ClientTest {
 
@@ -93,8 +107,8 @@ class PagerDutyV2ClientTest {
             return 400;
         });
 
-        IOException ex = assertThrows(IOException.class,
-                () -> new PagerDutyV2Client(url(), fastClient()).postEvent(Map.of("k", "v")));
+        IOException ex = assertThrows(
+                IOException.class, () -> new PagerDutyV2Client(url(), fastClient()).postEvent(Map.of("k", "v")));
         assertTrue(ex.getMessage().contains("400"));
         assertEquals(1, attempts.get(), "4xx (non-429) should not be retried");
     }
@@ -107,8 +121,8 @@ class PagerDutyV2ClientTest {
             return 500;
         });
 
-        IOException ex = assertThrows(IOException.class,
-                () -> new PagerDutyV2Client(url(), fastClient()).postEvent(Map.of("k", "v")));
+        IOException ex = assertThrows(
+                IOException.class, () -> new PagerDutyV2Client(url(), fastClient()).postEvent(Map.of("k", "v")));
         assertTrue(ex.getMessage().contains("500"));
         assertEquals(PagerDutyV2Client.MAX_ATTEMPTS, attempts.get());
     }

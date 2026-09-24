@@ -1,3 +1,16 @@
+// Copyright 2010 Rebel Media
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package io.jenkins.plugins.pagerdutyv2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,6 +23,9 @@ import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import hudson.util.Secret;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -20,10 +36,6 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-
 /**
  * Pipeline step:
  *   pagerDutyV2(action: 'trigger'|'resolve', severity: 'critical')
@@ -33,7 +45,7 @@ import java.util.Set;
  * - action='resolve' finds the most recent open action and replays the stored payload with
  *   event_action=resolve, injecting the freshly-resolved routing key at send time
  */
-public class PagerDutyV2Step extends Step {
+public final class PagerDutyV2Step extends Step {
 
     static final Set<String> VALID_ACTIONS = Set.of("trigger", "resolve");
     static final Set<String> VALID_SEVERITIES = Set.of("critical", "error", "warning", "info");
@@ -73,7 +85,12 @@ public class PagerDutyV2Step extends Step {
         return new Execution(this, context);
     }
 
-    public static class Execution extends SynchronousNonBlockingStepExecution<Void> {
+    /**
+     * Sends the event on a background thread, so the pipeline is not blocked while PagerDuty is
+     * contacted. A trigger stores its payload on the current build; a resolve replays the most
+     * recent open trigger.
+     */
+    public static final class Execution extends SynchronousNonBlockingStepExecution<Void> {
         private static final long serialVersionUID = 1L;
         private final String action;
         private final String severity;
@@ -108,8 +125,8 @@ public class PagerDutyV2Step extends Step {
                 throw new IllegalArgumentException("Unsupported action: " + action + " (expected trigger|resolve)");
             }
             if ("trigger".equals(action) && !VALID_SEVERITIES.contains(severity)) {
-                throw new IllegalArgumentException("Unsupported severity: " + severity
-                        + " (expected critical|error|warning|info)");
+                throw new IllegalArgumentException(
+                        "Unsupported severity: " + severity + " (expected critical|error|warning|info)");
             }
 
             String routingKey = rkSecret.getPlainText();
@@ -139,8 +156,8 @@ public class PagerDutyV2Step extends Step {
 
             @SuppressWarnings("unchecked")
             Map<String, Object> storedPayload = MAPPER.readValue(openAction.getPayloadJson(), Map.class);
-            Map<String, Object> resolveBody = PayloadBuilder.buildBody(
-                    routingKey, "resolve", openAction.getDedupKey(), storedPayload);
+            Map<String, Object> resolveBody =
+                    PayloadBuilder.buildBody(routingKey, "resolve", openAction.getDedupKey(), storedPayload);
 
             client.postEvent(resolveBody);
 
@@ -167,6 +184,10 @@ public class PagerDutyV2Step extends Step {
         }
     }
 
+    /**
+     * Registers the {@code pagerDutyV2} pipeline step and validates its {@code action} and {@code
+     * severity} arguments. Optional, so the plugin still loads when Pipeline is not installed.
+     */
     @Extension(optional = true)
     @Symbol("pagerDutyV2")
     public static final class DescriptorImpl extends StepDescriptor {

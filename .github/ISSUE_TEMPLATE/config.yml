@@ -1,2 +1,12 @@
 ---
 blank_issues_enabled: false
+contact_links:
+  - name: Security Vulnerability
+    url: https://github.com/rebelcore/jenkins-plugin-pagerduty-v2/security/advisories/new
+    about: >-
+      Report privately, not as a public issue. See SECURITY.md.
+  - name: Question or Discussion
+    url: https://github.com/rebelcore/jenkins-plugin-pagerduty-v2/discussions
+    about: >-
+      For usage questions, deployment advice, or ideas that are not yet a
+      concrete feature request.

@@ -1,4 +1,5 @@
 <?jelly escape-by-default='true'?>
+<!-- The description Jenkins shows on the plugin manager page. -->
 <div>
-  This plugin provides integration to PagerDuty AIOps <a href="https://support.pagerduty.com/main/docs/event-orchestration" target="_blank">Event Orchestration</a>.
+  This plugin provides integration to PagerDuty AIOps <a href="https://support.pagerduty.com/main/docs/event-orchestration" target="_blank" rel="noopener noreferrer">Event Orchestration</a>.
 </div>

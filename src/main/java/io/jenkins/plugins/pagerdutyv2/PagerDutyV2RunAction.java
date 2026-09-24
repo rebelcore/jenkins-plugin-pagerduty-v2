@@ -1,7 +1,20 @@
+// Copyright 2010 Rebel Media
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package io.jenkins.plugins.pagerdutyv2;
 
-import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.Run;
 import jenkins.model.RunAction2;
 
@@ -12,12 +25,13 @@ import jenkins.model.RunAction2;
  * the same body to PagerDuty. The {@code routing_key} is intentionally NOT stored
  * — it is a secret and must be resolved from credentials at send time.
  */
-public class PagerDutyV2RunAction implements RunAction2 {
+public final class PagerDutyV2RunAction implements RunAction2 {
     private transient Run<?, ?> owner;
 
     private String dedupKey;
     /** JSON-serialized {@code payload} object only — never the full body. */
     private String payloadJson;
+
     private boolean open = true;
 
     /**
@@ -36,10 +50,14 @@ public class PagerDutyV2RunAction implements RunAction2 {
     }
 
     @Override
-    public void onAttached(Run<?, ?> r) { this.owner = r; }
+    public void onAttached(Run<?, ?> r) {
+        this.owner = r;
+    }
 
     @Override
-    public void onLoad(Run<?, ?> r) { this.owner = r; }
+    public void onLoad(Run<?, ?> r) {
+        this.owner = r;
+    }
 
     public @NonNull String getDedupKey() {
         return dedupKey;
