@@ -141,6 +141,24 @@
       <artifactId>workflow-step-api</artifactId>
       <optional>true</optional>
     </dependency>
+
+    <!-- Tests only: real matrix and Pipeline jobs, so the tests exercise the
+         job types the plugin supports rather than stand-ins. -->
+    <dependency>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>matrix-project</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jenkins-ci.plugins.workflow</groupId>
+      <artifactId>workflow-job</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jenkins-ci.plugins.workflow</groupId>
+      <artifactId>workflow-cps</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
