@@ -83,9 +83,9 @@ final class PagerDutyV2Dispatcher {
     /**
      * Run the trigger/resolve decision for {@code run} and dispatch any
      * resulting event to PagerDuty. Marks the run with
-     * {@link PagerDutyV2HandledAction} regardless of outcome (including
-     * "skipped" cases) so the {@link PagerDutyV2RunListener} fallback does
-     * not double-fire.
+     * {@link PagerDutyV2HandledAction} whatever the outcome, including
+     * "skipped" cases and a send that fails, so the
+     * {@link PagerDutyV2RunListener} fallback does not dispatch it again.
      */
     static void dispatch(
             @NonNull Run<?, ?> run, @NonNull EnvVars env, @NonNull Config c, @NonNull TaskListener listener)
@@ -198,6 +198,9 @@ final class PagerDutyV2Dispatcher {
             }
 
             Map<String, Object> body = PayloadBuilder.buildBody(routingKey, "trigger", dedupKey, payload);
+            // Marked before sending: when the send fails, the fallback listener must not dispatch,
+            // and retry, the same event a second time.
+            markHandled(run, "trigger");
             client.postEvent(body);
 
             String payloadJson = MAPPER.writeValueAsString(payload);
@@ -205,7 +208,6 @@ final class PagerDutyV2Dispatcher {
             run.save();
 
             listener.getLogger().println("[pagerduty-v2] Trigger sent (dedup_key=" + dedupKey + ")");
-            markHandled(run, "triggered");
             return;
         }
 
@@ -214,6 +216,7 @@ final class PagerDutyV2Dispatcher {
             Map<String, Object> storedPayload = MAPPER.readValue(openAction.getPayloadJson(), Map.class);
             Map<String, Object> resolveBody =
                     PayloadBuilder.buildBody(routingKey, "resolve", openAction.getDedupKey(), storedPayload);
+            markHandled(run, "resolve");
             client.postEvent(resolveBody);
             openAction.markResolved();
             Run<?, ?> owner = openAction.getOwner();
@@ -223,7 +226,6 @@ final class PagerDutyV2Dispatcher {
                 run.save();
             }
             listener.getLogger().println("[pagerduty-v2] Resolve sent (dedup_key=" + openAction.getDedupKey() + ")");
-            markHandled(run, "resolved");
             return;
         }
 
