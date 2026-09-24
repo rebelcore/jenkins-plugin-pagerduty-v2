@@ -213,6 +213,23 @@ public final class PagerDutyV2Notifier extends Notifier implements SimpleBuildSt
         this.resolveOnBackToNormal = resolveOnBackToNormal;
     }
 
+    /**
+     * Nothing here touches the workspace. Saying so lets Jenkins run this post-build action for a
+     * build whose agent disconnected, instead of failing it with "no workspace" and marking a green
+     * build FAILURE.
+     */
+    @Override
+    public boolean requiresWorkspace() {
+        return false;
+    }
+
+    @Override
+    public void perform(@NonNull Run<?, ?> run, @NonNull EnvVars env, @NonNull TaskListener listener)
+            throws InterruptedException, IOException {
+        PagerDutyV2Dispatcher.dispatch(run, env, new PagerDutyV2Dispatcher.Config(this), listener);
+    }
+
+    /** Jenkins still calls this variant when the build does have a workspace. */
     @Override
     public void perform(
             @NonNull Run<?, ?> run,
@@ -221,7 +238,7 @@ public final class PagerDutyV2Notifier extends Notifier implements SimpleBuildSt
             @NonNull Launcher launcher,
             @NonNull TaskListener listener)
             throws InterruptedException, IOException {
-        PagerDutyV2Dispatcher.dispatch(run, env, new PagerDutyV2Dispatcher.Config(this), listener);
+        perform(run, env, listener);
     }
 
     /**

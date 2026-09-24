@@ -145,7 +145,7 @@ If an open incident already exists and a trigger condition happens again, the pl
 
 #### Agent-disconnect resilience
 
-When an agent disconnects mid-build, Jenkins may not be able to run the post-build publisher (it requires a live workspace). To avoid silently losing alerts in that case, a controller-side `RunListener` fires after every freestyle build's final state is recorded and dispatches the same trigger/resolve logic if the publisher didn't run. The two paths coordinate through a transient `PagerDutyV2HandledAction` marker so a single build never produces two events.
+When an agent disconnects mid-build, the build has no workspace by the time its post-build actions run. This post-build action does not need one, so it still runs and sends the event from the controller. As a further fallback, a controller-side `RunListener` fires after every freestyle build's final state is recorded and dispatches the same trigger/resolve logic if the post-build action did not run at all. The two paths coordinate through a transient `PagerDutyV2HandledAction` marker so a single build never produces two events.
 
 This applies to freestyle / matrix jobs only. Pipeline authors who need disconnect resilience should wrap their build in `catchError` or use `post { failure { pagerDutyV2(action: 'trigger') } }`, since the pipeline step is opt-in by design.
 

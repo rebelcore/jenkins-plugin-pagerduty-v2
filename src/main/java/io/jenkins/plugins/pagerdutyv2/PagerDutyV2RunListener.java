@@ -30,9 +30,9 @@ import java.util.logging.Logger;
 
 /**
  * Controller-side fallback that fires PagerDuty events for builds whose
- * publisher phase didn't run — most commonly when the executing agent
- * disconnected mid-build, leaving no workspace for {@link PagerDutyV2Notifier}
- * to attach to.
+ * post-build action never ran. {@link PagerDutyV2Notifier} does not need a
+ * workspace, so it normally sends the event itself even when the agent
+ * disconnected mid-build; this covers any build that still ends without it.
  *
  * <p>{@link RunListener#onFinalized} runs on the controller after the build's
  * final state is recorded, regardless of agent state, and does not require a
