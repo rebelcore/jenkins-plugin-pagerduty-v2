@@ -96,6 +96,24 @@ Docker:
 Events go to real PagerDuty, so use a test service's integration key.
 `make agent-down` removes the agent and its work volume.
 
+### Fuzzing
+
+Code that handles input nobody controls is fuzzed with
+[Jazzer](https://github.com/CodeIntelligenceTesting/jazzer). The fuzz targets
+are the `*Fuzzer` classes: `LegacyBodyMigratorFuzzer` feeds arbitrary build
+records to the 1.0.0 migration, and `PayloadBuilderFuzzer` arbitrary job names
+and build numbers to the dedup key.
+
+- Every build replays each target's stored inputs, under
+  `src/test/resources/io/jenkins/plugins/pagerdutyv2/fuzz/<target>/`, in
+  `FuzzInputsTest`.
+- The **Fuzz** workflow searches for new failing inputs for five minutes per
+  target every week, and can be started by hand. A failing input is attached to
+  the run.
+- To handle a finding: reproduce it by adding the input to the target's
+  directory, which makes `FuzzInputsTest` fail; fix the code; commit both. The
+  input stays as a regression check.
+
 ## Conventions
 
 These are the ones that get broken by accident.
