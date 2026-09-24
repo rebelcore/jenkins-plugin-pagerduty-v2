@@ -327,12 +327,13 @@ final class PagerDutyV2Dispatcher {
     }
 
     static boolean isExecutorDisconnected(@NonNull Run<?, ?> run) {
-        String tail = getConsoleLogTail(run, FAILURE_SIGNATURE_SCAN_LINES, FAILURE_SIGNATURE_SCAN_MAX_CHARS);
-        if (tail.isEmpty()) {
-            return false;
-        }
+        return hasDisconnectSignature(
+                getConsoleLogTail(run, FAILURE_SIGNATURE_SCAN_LINES, FAILURE_SIGNATURE_SCAN_MAX_CHARS));
+    }
 
-        String n = tail.toLowerCase(Locale.ROOT);
+    /** Whether console output contains one of the messages Jenkins logs when a build loses its agent. */
+    static boolean hasDisconnectSignature(@NonNull String consoleTail) {
+        String n = consoleTail.toLowerCase(Locale.ROOT);
         return n.contains("java.nio.channels.closedchannelexception")
                 || (n.contains("backing channel") && n.contains("is disconnected"))
                 || n.contains("jnlp4-connect connection")
