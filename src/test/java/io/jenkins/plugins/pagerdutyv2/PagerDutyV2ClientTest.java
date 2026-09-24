@@ -61,6 +61,42 @@ class PagerDutyV2ClientTest {
         return server;
     }
 
+    /** Answers every request with {@code code} and {@code body}. */
+    private void startServerAnswering(int code, String body) throws IOException {
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v2/enqueue", (HttpExchange ex) -> {
+            try (var in = ex.getRequestBody()) {
+                in.readAllBytes();
+            }
+            byte[] resp = body.getBytes(StandardCharsets.UTF_8);
+            ex.sendResponseHeaders(code, resp.length);
+            try (OutputStream os = ex.getResponseBody()) {
+                os.write(resp);
+            }
+        });
+        server.start();
+    }
+
+    /**
+     * Closes the connection without an answer for the first {@code drops} requests, as a proxy or
+     * load balancer that fails mid-request does, and accepts the ones after. Returns the request count.
+     */
+    private AtomicInteger startServerDroppingFirst(int drops) throws IOException {
+        AtomicInteger count = new AtomicInteger();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v2/enqueue", (HttpExchange ex) -> {
+            try (var in = ex.getRequestBody()) {
+                in.readAllBytes();
+            }
+            if (count.incrementAndGet() > drops) {
+                ex.sendResponseHeaders(202, -1);
+            }
+            ex.close();
+        });
+        server.start();
+        return count;
+    }
+
     private String url() {
         return "http://127.0.0.1:" + server.getAddress().getPort() + "/v2/enqueue";
     }
@@ -71,6 +107,11 @@ class PagerDutyV2ClientTest {
                 .connectTimeout(Duration.ofSeconds(2))
                 .readTimeout(Duration.ofSeconds(5))
                 .build();
+    }
+
+    /** OkHttp would otherwise repeat a request on a dropped connection itself, hiding it from the plugin. */
+    private static OkHttpClient clientLeavingRetriesToThePlugin() {
+        return fastClient().newBuilder().retryOnConnectionFailure(false).build();
     }
 
     @Test
@@ -125,6 +166,35 @@ class PagerDutyV2ClientTest {
                 IOException.class, () -> new PagerDutyV2Client(url(), fastClient()).postEvent(Map.of("k", "v")));
         assertTrue(ex.getMessage().contains("500"));
         assertEquals(PagerDutyV2Client.MAX_ATTEMPTS, attempts.get());
+    }
+
+    @Test
+    void retriesWhenTheConnectionDrops() throws Exception {
+        AtomicInteger attempts = startServerDroppingFirst(1);
+
+        new PagerDutyV2Client(url(), clientLeavingRetriesToThePlugin()).postEvent(Map.of("k", "v"));
+
+        assertEquals(2, attempts.get(), "one dropped connection, then the event is delivered");
+    }
+
+    @Test
+    void givesUpWhenTheConnectionKeepsDropping() throws Exception {
+        AtomicInteger attempts = startServerDroppingFirst(Integer.MAX_VALUE);
+
+        assertThrows(
+                IOException.class,
+                () -> new PagerDutyV2Client(url(), clientLeavingRetriesToThePlugin()).postEvent(Map.of("k", "v")));
+        assertEquals(PagerDutyV2Client.MAX_ATTEMPTS, attempts.get());
+    }
+
+    @Test
+    void aLongErrorResponseIsShortenedInTheMessage() throws Exception {
+        startServerAnswering(400, "x".repeat(1000));
+
+        IOException ex = assertThrows(
+                IOException.class, () -> new PagerDutyV2Client(url(), fastClient()).postEvent(Map.of("k", "v")));
+
+        assertTrue(ex.getMessage().endsWith(" " + "x".repeat(500) + "..."), ex.getMessage());
     }
 
     @FunctionalInterface
