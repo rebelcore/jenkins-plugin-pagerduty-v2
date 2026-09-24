@@ -20,6 +20,7 @@ release notes from pull request labels, not here.
 * [BUGFIX] A freestyle build whose agent disconnected before its post-build actions no longer fails with "no workspace": the post-build action runs without one and sends the event itself, and a green build stays green.
 * [BUGFIX] When sending an event fails, the disconnect fallback no longer sends it again, which doubled the retries and could leave a green build red without its resolve.
 * [BUGFIX] The build that opened an incident is kept until the incident is resolved. Build retention could delete it first, leaving the incident open forever and letting the next failure open a second one.
+* [BUGFIX] Matrix jobs no longer send an extra event for the parent build on top of the events from their configurations.
 
 ## 1.1.0 / 2026-04-28
 
