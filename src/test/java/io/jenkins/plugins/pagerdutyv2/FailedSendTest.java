@@ -15,6 +15,7 @@ package io.jenkins.plugins.pagerdutyv2;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
@@ -45,6 +46,27 @@ class FailedSendTest {
 
             assertNotNull(b.getAction(PagerDutyV2HandledAction.class), "a failed send still counts as handled");
             assertEquals(1, api.events().size(), "the event was sent once, by the build, and not again");
+        }
+    }
+
+    @Test
+    void aFailedSendFromTheFallbackIsLoggedAndRecordsNoIncident(JenkinsRule j) throws Exception {
+        try (FakeEventsApi api = new FakeEventsApi()) {
+            api.configurePlugin("rk_test");
+            api.respondWith(400);
+            FreeStyleProject p = j.createFreeStyleProject();
+            p.getBuildersList().add(new FailureBuilder());
+            // Built before the post-build action is added, as a build whose action never ran.
+            FreeStyleBuild b = j.buildAndAssertStatus(Result.FAILURE, p);
+            PagerDutyV2Notifier n = new PagerDutyV2Notifier();
+            n.setService("svc");
+            p.getPublishersList().add(n);
+
+            new PagerDutyV2RunListener().onFinalized(b);
+
+            assertEquals(1, api.events().size());
+            assertNotNull(b.getAction(PagerDutyV2HandledAction.class));
+            assertNull(b.getAction(PagerDutyV2RunAction.class), "PagerDuty refused the event, so nothing is open");
         }
     }
 }
