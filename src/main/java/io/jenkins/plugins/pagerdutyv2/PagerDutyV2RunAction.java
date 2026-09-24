@@ -16,6 +16,11 @@ package io.jenkins.plugins.pagerdutyv2;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.Run;
+import hudson.security.ACL;
+import hudson.security.ACLContext;
+import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import jenkins.model.RunAction2;
 
 /**
@@ -26,7 +31,15 @@ import jenkins.model.RunAction2;
  * — it is a secret and must be resolved from credentials at send time.
  */
 public final class PagerDutyV2RunAction implements RunAction2 {
+    private static final Logger LOGGER = Logger.getLogger(PagerDutyV2RunAction.class.getName());
+
     private transient Run<?, ?> owner;
+
+    /**
+     * Set by {@link #readResolve()} when it dropped a legacy body, so that {@link #onLoad} writes the
+     * build record again without it.
+     */
+    private transient boolean legacyBodyDropped;
 
     private String dedupKey;
     /** JSON-serialized {@code payload} object only — never the full body. */
@@ -35,18 +48,37 @@ public final class PagerDutyV2RunAction implements RunAction2 {
     private boolean open = true;
 
     /**
+     * Whether this plugin marked the owning build "keep forever". An open incident is recorded only
+     * on the build that triggered it, so build retention must not delete that build before the
+     * incident is resolved.
+     */
+    private boolean keepingOwner;
+
+    /**
+     * Whether the trigger went to the sandbox integration. The incident lives there, so its resolve
+     * has to use the same routing key, whatever the job's sandbox setting says by then.
+     */
+    private boolean sandbox;
+
+    /**
      * Legacy field: full trigger body JSON including {@code routing_key}.
-     * Persisted by older versions; kept here only so XStream can read existing
-     * {@code build.xml} files. Migrated to {@link #payloadJson} on first read
-     * via {@link #readResolve()}, after which it is cleared.
+     * Persisted by 1.0.0; kept here only so XStream can read those
+     * {@code build.xml} files. {@link #readResolve()} moves the payload to
+     * {@link #payloadJson} and clears it, and {@link #onLoad} then saves the
+     * build so the routing key is gone from disk as well as from memory.
      */
     @Deprecated
     private String triggerBodyJson;
 
     public PagerDutyV2RunAction(@NonNull String dedupKey, @NonNull String payloadJson) {
+        this(dedupKey, payloadJson, false);
+    }
+
+    public PagerDutyV2RunAction(@NonNull String dedupKey, @NonNull String payloadJson, boolean sandbox) {
         this.dedupKey = dedupKey;
         this.payloadJson = payloadJson;
         this.open = true;
+        this.sandbox = sandbox;
     }
 
     @Override
@@ -57,6 +89,16 @@ public final class PagerDutyV2RunAction implements RunAction2 {
     @Override
     public void onLoad(Run<?, ?> r) {
         this.owner = r;
+        if (legacyBodyDropped) {
+            // Until the build is saved, its build.xml still holds the routing key that 1.0.0
+            // wrote, and nothing else would save an old, finished build again.
+            legacyBodyDropped = false;
+            try {
+                r.save();
+            } catch (IOException | RuntimeException e) {
+                LOGGER.log(Level.WARNING, "Could not rewrite " + r + " to remove the routing key 1.0.0 stored", e);
+            }
+        }
     }
 
     public @NonNull String getDedupKey() {
@@ -75,8 +117,45 @@ public final class PagerDutyV2RunAction implements RunAction2 {
         return open;
     }
 
+    public boolean isSandbox() {
+        return sandbox;
+    }
+
     public void markResolved() {
         this.open = false;
+    }
+
+    /**
+     * Keeps the owning build out of build retention while its incident is open. A build that is
+     * already kept is left alone, and so is not released again later.
+     */
+    void keepOwnerWhileOpen() {
+        Run<?, ?> r = owner;
+        if (r == null || r.isKeepLog()) {
+            return;
+        }
+        keepingOwner = true;
+        // As SYSTEM: the build may run as a user who cannot change "keep forever" themselves.
+        try (ACLContext ignored = ACL.as2(ACL.SYSTEM2)) {
+            r.keepLog(true);
+        } catch (IOException | RuntimeException e) {
+            keepingOwner = false;
+            LOGGER.log(Level.WARNING, "Could not keep " + r + " while its PagerDuty incident is open", e);
+        }
+    }
+
+    /** Hands the owning build back to build retention, if this plugin was the one keeping it. */
+    void stopKeepingOwner() {
+        Run<?, ?> r = owner;
+        if (r == null || !keepingOwner) {
+            return;
+        }
+        keepingOwner = false;
+        try (ACLContext ignored = ACL.as2(ACL.SYSTEM2)) {
+            r.keepLog(false);
+        } catch (IOException | RuntimeException e) {
+            LOGGER.log(Level.WARNING, "Could not release " + r + " to build retention", e);
+        }
     }
 
     /**
@@ -85,10 +164,13 @@ public final class PagerDutyV2RunAction implements RunAction2 {
      */
     @SuppressWarnings("deprecation")
     protected Object readResolve() {
-        if (payloadJson == null && triggerBodyJson != null) {
-            payloadJson = LegacyBodyMigrator.extractPayload(triggerBodyJson);
+        if (triggerBodyJson != null) {
+            if (payloadJson == null) {
+                payloadJson = LegacyBodyMigrator.extractPayload(triggerBodyJson);
+            }
+            triggerBodyJson = null;
+            legacyBodyDropped = true;
         }
-        triggerBodyJson = null;
         return this;
     }
 

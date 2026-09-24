@@ -83,9 +83,9 @@ final class PagerDutyV2Dispatcher {
     /**
      * Run the trigger/resolve decision for {@code run} and dispatch any
      * resulting event to PagerDuty. Marks the run with
-     * {@link PagerDutyV2HandledAction} regardless of outcome (including
-     * "skipped" cases) so the {@link PagerDutyV2RunListener} fallback does
-     * not double-fire.
+     * {@link PagerDutyV2HandledAction} whatever the outcome, including
+     * "skipped" cases and a send that fails, so the
+     * {@link PagerDutyV2RunListener} fallback does not dispatch it again.
      */
     static void dispatch(
             @NonNull Run<?, ?> run, @NonNull EnvVars env, @NonNull Config c, @NonNull TaskListener listener)
@@ -108,28 +108,6 @@ final class PagerDutyV2Dispatcher {
             return;
         }
 
-        Secret rkSecret = null;
-        if (c.sandboxMode) {
-            Secret sandbox = cfg.resolveSandboxRoutingKey();
-            if (sandbox != null) {
-                rkSecret = sandbox;
-                listener.getLogger().println("[pagerduty-v2] Sandbox mode enabled; using sandbox routing key.");
-            } else {
-                listener.getLogger()
-                        .println("[pagerduty-v2] Sandbox mode enabled but no sandbox routing key configured; "
-                                + "falling back to primary routing key.");
-            }
-        }
-        if (rkSecret == null) {
-            rkSecret = cfg.resolveRoutingKey();
-        }
-        if (rkSecret == null) {
-            listener.getLogger().println("[pagerduty-v2] No routing key credential configured; skipping.");
-            markHandled(run, "no-routing-key");
-            return;
-        }
-
-        String routingKey = rkSecret.getPlainText();
         PagerDutyV2Client client = new PagerDutyV2Client(cfg.getEndpointUrl());
 
         boolean shouldTrigger = shouldTriggerFor(c, result);
@@ -150,6 +128,31 @@ final class PagerDutyV2Dispatcher {
                         .println("[pagerduty-v2] Open incident already exists (dedup_key=" + openAction.getDedupKey()
                                 + "); not triggering again.");
                 markHandled(run, "open-incident-exists");
+                return;
+            }
+
+            // The job's sandbox setting picks the integration for a new incident. The choice is
+            // recorded on the build, because the resolve has to go to the same integration.
+            boolean sandbox = false;
+            Secret rkSecret = null;
+            if (c.sandboxMode) {
+                Secret sandboxKey = cfg.resolveSandboxRoutingKey();
+                if (sandboxKey != null) {
+                    rkSecret = sandboxKey;
+                    sandbox = true;
+                    listener.getLogger().println("[pagerduty-v2] Sandbox mode enabled; using sandbox routing key.");
+                } else {
+                    listener.getLogger()
+                            .println("[pagerduty-v2] Sandbox mode enabled but no sandbox routing key configured; "
+                                    + "falling back to primary routing key.");
+                }
+            }
+            if (rkSecret == null) {
+                rkSecret = cfg.resolveRoutingKey();
+            }
+            if (rkSecret == null) {
+                listener.getLogger().println("[pagerduty-v2] No routing key credential configured; skipping.");
+                markHandled(run, "no-routing-key");
                 return;
             }
 
@@ -197,25 +200,37 @@ final class PagerDutyV2Dispatcher {
                 }
             }
 
-            Map<String, Object> body = PayloadBuilder.buildBody(routingKey, "trigger", dedupKey, payload);
+            Map<String, Object> body = PayloadBuilder.buildBody(rkSecret.getPlainText(), "trigger", dedupKey, payload);
+            // Marked before sending: when the send fails, the fallback listener must not dispatch,
+            // and retry, the same event a second time.
+            markHandled(run, "trigger");
             client.postEvent(body);
 
             String payloadJson = MAPPER.writeValueAsString(payload);
-            run.addAction(new PagerDutyV2RunAction(dedupKey, payloadJson));
+            PagerDutyV2RunAction action = new PagerDutyV2RunAction(dedupKey, payloadJson, sandbox);
+            run.addAction(action);
+            action.keepOwnerWhileOpen();
             run.save();
 
             listener.getLogger().println("[pagerduty-v2] Trigger sent (dedup_key=" + dedupKey + ")");
-            markHandled(run, "triggered");
             return;
         }
 
         if (c.resolveOnBackToNormal && openAction != null && Result.SUCCESS.equals(result)) {
+            Secret rkSecret = routingKeyThatOpened(openAction, cfg);
+            if (rkSecret == null) {
+                logResolveKeyMissing(openAction, listener);
+                markHandled(run, "no-routing-key-for-resolve");
+                return;
+            }
             @SuppressWarnings("unchecked")
             Map<String, Object> storedPayload = MAPPER.readValue(openAction.getPayloadJson(), Map.class);
-            Map<String, Object> resolveBody =
-                    PayloadBuilder.buildBody(routingKey, "resolve", openAction.getDedupKey(), storedPayload);
+            Map<String, Object> resolveBody = PayloadBuilder.buildBody(
+                    rkSecret.getPlainText(), "resolve", openAction.getDedupKey(), storedPayload);
+            markHandled(run, "resolve");
             client.postEvent(resolveBody);
             openAction.markResolved();
+            openAction.stopKeepingOwner();
             Run<?, ?> owner = openAction.getOwner();
             if (owner != null) {
                 owner.save();
@@ -223,11 +238,28 @@ final class PagerDutyV2Dispatcher {
                 run.save();
             }
             listener.getLogger().println("[pagerduty-v2] Resolve sent (dedup_key=" + openAction.getDedupKey() + ")");
-            markHandled(run, "resolved");
             return;
         }
 
         markHandled(run, "no-action");
+    }
+
+    /**
+     * The routing key the incident's trigger used: the sandbox key if it went to the sandbox
+     * integration, the primary key otherwise. Null when that key is no longer configured. A resolve
+     * sent with the other key would reach an integration that never saw the incident, which accepts
+     * it and drops it, so the incident would stay open while the build said it was resolved.
+     */
+    static @CheckForNull Secret routingKeyThatOpened(
+            @NonNull PagerDutyV2RunAction open, @NonNull PagerDutyV2GlobalConfiguration cfg) {
+        return open.isSandbox() ? cfg.resolveSandboxRoutingKey() : cfg.resolveRoutingKey();
+    }
+
+    static void logResolveKeyMissing(@NonNull PagerDutyV2RunAction open, @NonNull TaskListener listener) {
+        listener.getLogger()
+                .println("[pagerduty-v2] The " + (open.isSandbox() ? "sandbox" : "primary")
+                        + " routing key that opened this incident (dedup_key=" + open.getDedupKey()
+                        + ") is no longer configured; not resolving it.");
     }
 
     private static void markHandled(@NonNull Run<?, ?> run, @CheckForNull String reason) {
@@ -267,7 +299,8 @@ final class PagerDutyV2Dispatcher {
         return count;
     }
 
-    private static @CheckForNull PagerDutyV2RunAction findMostRecentOpenAction(@NonNull Run<?, ?> run) {
+    /** The newest open incident in the job's history, if any. Also used by the pipeline step. */
+    static @CheckForNull PagerDutyV2RunAction findMostRecentOpenAction(@NonNull Run<?, ?> run) {
         for (Run<?, ?> r = run; r != null; r = r.getPreviousBuild()) {
             PagerDutyV2RunAction a = r.getAction(PagerDutyV2RunAction.class);
             if (a != null && a.isOpen()) {

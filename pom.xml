@@ -72,7 +72,7 @@
 
     <!-- The share of lines the tests must cover, checked by `verify`. Start
          where the suite actually is and raise it; never lower it. -->
-    <coverage.floor>0.51</coverage.floor>
+    <coverage.floor>0.66</coverage.floor>
 
     <!-- Shared by every Rebel Media Java project, Fabric mods included. -->
     <palantir-java-format.version>2.98.0</palantir-java-format.version>
@@ -140,6 +140,24 @@
       <groupId>org.jenkins-ci.plugins.workflow</groupId>
       <artifactId>workflow-step-api</artifactId>
       <optional>true</optional>
+    </dependency>
+
+    <!-- Tests only: real matrix and Pipeline jobs, so the tests exercise the
+         job types the plugin supports rather than stand-ins. -->
+    <dependency>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>matrix-project</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jenkins-ci.plugins.workflow</groupId>
+      <artifactId>workflow-job</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jenkins-ci.plugins.workflow</groupId>
+      <artifactId>workflow-cps</artifactId>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 

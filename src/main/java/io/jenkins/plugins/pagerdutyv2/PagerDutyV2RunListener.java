@@ -18,6 +18,7 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.model.AbstractProject;
+import hudson.model.Build;
 import hudson.model.Job;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -30,9 +31,9 @@ import java.util.logging.Logger;
 
 /**
  * Controller-side fallback that fires PagerDuty events for builds whose
- * publisher phase didn't run — most commonly when the executing agent
- * disconnected mid-build, leaving no workspace for {@link PagerDutyV2Notifier}
- * to attach to.
+ * post-build action never ran. {@link PagerDutyV2Notifier} does not need a
+ * workspace, so it normally sends the event itself even when the agent
+ * disconnected mid-build; this covers any build that still ends without it.
  *
  * <p>{@link RunListener#onFinalized} runs on the controller after the build's
  * final state is recorded, regardless of agent state, and does not require a
@@ -52,6 +53,12 @@ public final class PagerDutyV2RunListener extends RunListener<Run<?, ?>> {
 
     @Override
     public void onFinalized(@NonNull Run<?, ?> run) {
+        // Only builds that run their own post-build actions: freestyle builds and matrix
+        // configurations. A matrix parent build runs none, and its configurations have already sent
+        // their events, so treating it as a skipped build would page once more for the whole matrix.
+        if (!(run instanceof Build)) {
+            return;
+        }
         if (run.getAction(PagerDutyV2HandledAction.class) != null) {
             return; // PagerDutyV2Notifier#perform already handled (or deliberately skipped) this build
         }

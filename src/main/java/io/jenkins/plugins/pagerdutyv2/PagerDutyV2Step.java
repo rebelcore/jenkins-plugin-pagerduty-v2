@@ -14,7 +14,6 @@
 package io.jenkins.plugins.pagerdutyv2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.EnvVars;
 import hudson.Extension;
@@ -133,6 +132,16 @@ public final class PagerDutyV2Step extends Step {
             PagerDutyV2Client client = new PagerDutyV2Client(cfg.getEndpointUrl());
 
             if ("trigger".equals(action)) {
+                // As with the post-build action: one incident at a time. A second trigger would open a
+                // second incident that only a second resolve could close.
+                PagerDutyV2RunAction alreadyOpen = PagerDutyV2Dispatcher.findMostRecentOpenAction(run);
+                if (alreadyOpen != null) {
+                    listener.getLogger()
+                            .println("[pagerduty-v2] Open incident already exists (dedup_key="
+                                    + alreadyOpen.getDedupKey() + "); not triggering again.");
+                    return null;
+                }
+
                 String dedupKey = PayloadBuilder.dedupKey(env);
                 Map<String, Object> payload = PayloadBuilder.buildPayload(env, severity);
                 Map<String, Object> body = PayloadBuilder.buildBody(routingKey, "trigger", dedupKey, payload);
@@ -140,7 +149,9 @@ public final class PagerDutyV2Step extends Step {
                 client.postEvent(body);
 
                 String payloadJson = MAPPER.writeValueAsString(payload);
-                run.addAction(new PagerDutyV2RunAction(dedupKey, payloadJson));
+                PagerDutyV2RunAction triggered = new PagerDutyV2RunAction(dedupKey, payloadJson);
+                run.addAction(triggered);
+                triggered.keepOwnerWhileOpen();
                 run.save();
 
                 listener.getLogger().println("[pagerduty-v2] Trigger sent (dedup_key=" + dedupKey + ")");
@@ -148,20 +159,28 @@ public final class PagerDutyV2Step extends Step {
             }
 
             // resolve
-            PagerDutyV2RunAction openAction = findMostRecentOpenAction(run);
+            PagerDutyV2RunAction openAction = PagerDutyV2Dispatcher.findMostRecentOpenAction(run);
             if (openAction == null) {
                 listener.getLogger().println("[pagerduty-v2] No open incident found; nothing to resolve.");
                 return null;
             }
 
+            // The step triggers with the primary key only, but the resolve follows whatever key the
+            // incident's trigger recorded, exactly as the post-build action does.
+            Secret resolveKey = PagerDutyV2Dispatcher.routingKeyThatOpened(openAction, cfg);
+            if (resolveKey == null) {
+                PagerDutyV2Dispatcher.logResolveKeyMissing(openAction, listener);
+                return null;
+            }
             @SuppressWarnings("unchecked")
             Map<String, Object> storedPayload = MAPPER.readValue(openAction.getPayloadJson(), Map.class);
-            Map<String, Object> resolveBody =
-                    PayloadBuilder.buildBody(routingKey, "resolve", openAction.getDedupKey(), storedPayload);
+            Map<String, Object> resolveBody = PayloadBuilder.buildBody(
+                    resolveKey.getPlainText(), "resolve", openAction.getDedupKey(), storedPayload);
 
             client.postEvent(resolveBody);
 
             openAction.markResolved();
+            openAction.stopKeepingOwner();
             Run<?, ?> owner = openAction.getOwner();
             if (owner != null) {
                 owner.save();
@@ -170,16 +189,6 @@ public final class PagerDutyV2Step extends Step {
             }
 
             listener.getLogger().println("[pagerduty-v2] Resolve sent (dedup_key=" + openAction.getDedupKey() + ")");
-            return null;
-        }
-
-        private @CheckForNull PagerDutyV2RunAction findMostRecentOpenAction(@NonNull Run<?, ?> run) {
-            for (Run<?, ?> r = run; r != null; r = r.getPreviousBuild()) {
-                PagerDutyV2RunAction a = r.getAction(PagerDutyV2RunAction.class);
-                if (a != null && a.isOpen()) {
-                    return a;
-                }
-            }
             return null;
         }
     }

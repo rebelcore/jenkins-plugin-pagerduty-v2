@@ -143,9 +143,14 @@ If an open incident already exists and a trigger condition happens again, the pl
 
 - `[pagerduty-v2] Open incident already exists ...; not triggering again.`
 
+While an incident is open, the build that triggered it is marked **Keep this build
+forever**, because that build is the only record of the incident: if build
+retention deleted it, the incident could never be resolved. The mark is removed
+when the incident is resolved, unless the build was already kept.
+
 #### Agent-disconnect resilience
 
-When an agent disconnects mid-build, Jenkins may not be able to run the post-build publisher (it requires a live workspace). To avoid silently losing alerts in that case, a controller-side `RunListener` fires after every freestyle build's final state is recorded and dispatches the same trigger/resolve logic if the publisher didn't run. The two paths coordinate through a transient `PagerDutyV2HandledAction` marker so a single build never produces two events.
+When an agent disconnects mid-build, the build has no workspace by the time its post-build actions run. This post-build action does not need one, so it still runs and sends the event from the controller. As a further fallback, a controller-side `RunListener` fires after every freestyle build's final state is recorded and dispatches the same trigger/resolve logic if the post-build action did not run at all. The two paths coordinate through a transient `PagerDutyV2HandledAction` marker so a single build never produces two events.
 
 This applies to freestyle / matrix jobs only. Pipeline authors who need disconnect resilience should wrap their build in `catchError` or use `post { failure { pagerDutyV2(action: 'trigger') } }`, since the pipeline step is opt-in by design.
 
@@ -160,6 +165,7 @@ pagerDutyV2(action: 'resolve')
 
 - Resolve searches backward through the job's build history to find the most recent **open** trigger action and resolves it.
 - If none exists, it prints `No open incident found; nothing to resolve.`
+- Trigger does nothing while an incident is already open for the job. Like the post-build action, it logs `Open incident already exists ...; not triggering again.`
 
 Example:
 
@@ -199,14 +205,17 @@ tests.
 #### Payload replay
 
 On trigger, the plugin stores the event payload and dedup key in a
-`PagerDutyV2RunAction` attached to that build. The routing key is not stored:
-it is read from the credential each time an event is sent.
+`PagerDutyV2RunAction` attached to that build, together with which routing key
+it used: the primary one or, in sandbox mode, the sandbox one. The key itself is
+not stored: it is read from its credential each time an event is sent.
 
 On resolve:
 
 - the stored payload is loaded
 - `event_action` is set to `"resolve"`
-- the event is posted with the current routing key
+- the event is posted with the same routing key the trigger used, read from its
+  credential again; if that credential is no longer configured, the incident is
+  left open and the build log says why
 - the stored action is marked closed
 
 This ensures that a resolve uses the same `dedup_key` and payload structure as
