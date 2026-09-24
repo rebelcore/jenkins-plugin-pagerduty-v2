@@ -14,8 +14,8 @@ release notes from pull request labels, not here.
 
 ## main / unreleased
 
-* [CHANGE] Requires Jenkins 2.568.3 or newer (was 2.541.1).
-* [CHANGE] Releases attach `pagerduty-v2-<version>.hpi` and `sha256sums.txt`. The `.jpi` copy and `checksums.sha256` are no longer published.
+* [CHANGE] Requires Jenkins 2.568.1 or newer (was 2.541.1).
+* [CHANGE] Releases attach `pagerduty-v2-<version>.hpi`, the same file as `pagerduty-v2.hpi`, and `sha256sums.txt`. The `.jpi` copy and `checksums.sha256` are no longer published.
 
 ## 1.1.0 / 2026-04-28
 

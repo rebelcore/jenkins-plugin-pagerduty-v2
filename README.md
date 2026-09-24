@@ -5,7 +5,7 @@
 [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/rebelcore/jenkins-plugin-pagerduty-v2/test.yml?style=for-the-badge&color=22C55E)](https://github.com/rebelcore/jenkins-plugin-pagerduty-v2/actions/workflows/test.yml)
 [![GitHub Release](https://img.shields.io/github/v/release/rebelcore/jenkins-plugin-pagerduty-v2?style=for-the-badge&color=22C55E)](https://github.com/rebelcore/jenkins-plugin-pagerduty-v2/releases/latest)
 [![GitHub Downloads](https://img.shields.io/github/downloads/rebelcore/jenkins-plugin-pagerduty-v2/total?style=for-the-badge&color=1D63ED)](https://github.com/rebelcore/jenkins-plugin-pagerduty-v2/releases)
-[![Jenkins](https://img.shields.io/badge/Jenkins-2.568.3%2B-D24939?style=for-the-badge)](https://www.jenkins.io/changelog-stable/)
+[![Jenkins](https://img.shields.io/badge/Jenkins-2.568.1%2B-D24939?style=for-the-badge)](https://www.jenkins.io/changelog-stable/)
 [![License](https://img.shields.io/badge/license-Apache%202-g?style=for-the-badge&color=8B5CF6)](LICENSE)
 
 Jenkins plugin that sends PagerDuty Events API v2 trigger
@@ -15,7 +15,7 @@ and resolve events from Jenkins builds.
 
 ---
 
-A Jenkins plugin. It needs Jenkins 2.568.3 or newer, and supports:
+A Jenkins plugin. It needs Jenkins 2.568.1 or newer, and supports:
 
 - **Freestyle / classic jobs** via a post-build **Notifier**
 - **Pipeline** via a `pagerDutyV2` step
@@ -30,7 +30,12 @@ trigger.
 Download `pagerduty-v2-<version>.hpi` from the
 [releases page](https://github.com/rebelcore/jenkins-plugin-pagerduty-v2/releases), verify it against `sha256sums.txt`,
 and upload it under **Manage Jenkins → Plugins → Advanced settings → Deploy
-Plugin**. Restart Jenkins when it asks.
+Plugin**. Restart Jenkins when it asks. Each release also carries the same
+file as `pagerduty-v2.hpi`, so a script can always fetch
+`releases/latest/download/pagerduty-v2.hpi`.
+
+Check your Jenkins version first: the upload does not. On a Jenkins older than
+2.568.1 the plugin installs, but fails to load after the restart.
 
 ## Usage
 

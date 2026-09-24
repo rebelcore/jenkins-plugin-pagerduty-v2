@@ -109,11 +109,14 @@ agent-logs: ## Follow the agent's logs
 agent-down: ## Remove the agent container and delete its work volume
 	docker compose down -v
 
-# What the release attaches, built the way the release builds it.
+# What the release attaches, built the way the release builds it. The .hpi is
+# attached twice: under its versioned name, and as $(ARTIFACT).hpi, so links to
+# releases/latest/download/$(ARTIFACT).hpi keep working from release to release.
 .PHONY: dist
 dist: verify ## Build the release artefacts into dist/ with sha256sums.txt
 	rm -rf dist && mkdir -p dist
 	cp target/$(ARTIFACT).hpi dist/$(ARTIFACT)-$(VERSION).hpi
+	cp target/$(ARTIFACT).hpi dist/$(ARTIFACT).hpi
 	@cd dist && files="$$(ls)" && { sha256sum $$files 2>/dev/null || shasum -a 256 $$files; } > sha256sums.txt
 	@echo; echo "Built:"; ls -1 dist
 

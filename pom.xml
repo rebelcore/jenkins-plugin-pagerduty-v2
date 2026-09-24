@@ -81,7 +81,7 @@
     <!-- The oldest Jenkins LTS this plugin supports. It decides the Java
          release the plugin is compiled for (the parent reads it from
          jenkins-core) and which plugin BOM line applies below. -->
-    <jenkins.version>2.568.3</jenkins.version>
+    <jenkins.version>2.568.1</jenkins.version>
     <!-- The parent ships Spotless switched off; the Rebel Media standard
          switches it on. -->
     <spotless.check.skip>false</spotless.check.skip>
