@@ -1,0 +1,1 @@
+{"routing_key":"R0UTINGKEY00000000000000000000000","event_action":"trigger","dedup_key":"a3f1","payload":{"summary":"Jenkins job build 7","source":"http://jenkins/","severity":"error","component":"svc","custom_details":{"job_name":"job","build_number":"7"}}}

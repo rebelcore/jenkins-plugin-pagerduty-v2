@@ -95,6 +95,10 @@
          an IDE build works. The Makefile and CI narrow it to [25,26) through
          JAVA_RANGE for anything that is released. -->
     <java.range>[25,)</java.range>
+    <!-- The Jazzer API the fuzz targets use. .github/workflows/fuzz.yml runs
+         them with the Jazzer release of this same version, and refuses to run
+         when the two differ. -->
+    <jazzer.version>0.30.0</jazzer.version>
   </properties>
 
   <dependencyManagement>
@@ -157,6 +161,17 @@
     <dependency>
       <groupId>org.jenkins-ci.plugins.workflow</groupId>
       <artifactId>workflow-cps</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Tests only: the Jazzer API the fuzz targets (*Fuzzer) are written
+         against. .github/workflows/fuzz.yml runs them with the Jazzer release
+         of the same version; FuzzInputsTest replays their stored inputs in
+         every build. jazzer-junit is not used: it does not support JUnit 6
+         yet. -->
+    <dependency>
+      <groupId>com.code-intelligence</groupId>
+      <artifactId>jazzer-api</artifactId>
+      <version>${jazzer.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
