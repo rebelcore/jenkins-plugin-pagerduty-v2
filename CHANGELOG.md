@@ -22,6 +22,7 @@ release notes from pull request labels, not here.
 * [BUGFIX] The build that opened an incident is kept until the incident is resolved. Build retention could delete it first, leaving the incident open forever and letting the next failure open a second one.
 * [BUGFIX] Matrix jobs no longer send an extra event for the parent build on top of the events from their configurations.
 * [BUGFIX] The `pagerDutyV2` pipeline step no longer triggers a second incident while one is already open for the job.
+* [BUGFIX] Events follow the Jenkins proxy configuration on every request: proxy credentials and the no-proxy list now apply, and a proxy change takes effect without a restart.
 
 ## 1.1.0 / 2026-04-28
 

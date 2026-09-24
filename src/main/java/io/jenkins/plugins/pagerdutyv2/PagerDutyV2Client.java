@@ -15,13 +15,11 @@ package io.jenkins.plugins.pagerdutyv2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.NonNull;
-import hudson.ProxyConfiguration;
+import io.jenkins.plugins.okhttp.api.JenkinsOkHttpClient;
 import java.io.IOException;
-import java.net.Proxy;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
-import jenkins.model.Jenkins;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -33,7 +31,7 @@ import okhttp3.Response;
  *
  * Retries on 429 and 5xx with exponential backoff + jitter.
  * Reuses a process-wide OkHttp client (connection pool, dispatcher).
- * Honors Jenkins {@link ProxyConfiguration}.
+ * Follows the Jenkins proxy configuration, looked up again for every request.
  */
 public final class PagerDutyV2Client {
 
@@ -67,34 +65,17 @@ public final class PagerDutyV2Client {
         }
         synchronized (PagerDutyV2Client.class) {
             if (shared == null) {
-                OkHttpClient.Builder b = new OkHttpClient.Builder()
+                // okhttp-api's builder asks Jenkins for the proxy on every request, for the host that
+                // request goes to, and answers proxy authentication with the configured credentials.
+                // Choosing one proxy up front, as before, ignored credentials, the no-proxy list for
+                // a custom endpoint, and any proxy change made after the first event.
+                shared = JenkinsOkHttpClient.newClientBuilder(new OkHttpClient())
                         .callTimeout(Duration.ofSeconds(15))
                         .connectTimeout(Duration.ofSeconds(10))
-                        .readTimeout(Duration.ofSeconds(15));
-                Proxy proxy = jenkinsProxy();
-                if (proxy != null) {
-                    b.proxy(proxy);
-                }
-                shared = b.build();
+                        .readTimeout(Duration.ofSeconds(15))
+                        .build();
             }
             return shared;
-        }
-    }
-
-    private static Proxy jenkinsProxy() {
-        try {
-            Jenkins j = Jenkins.getInstanceOrNull();
-            if (j == null) {
-                return null;
-            }
-            ProxyConfiguration pc = j.getProxy();
-            if (pc == null) {
-                return null;
-            }
-            // createProxy(host) uses the host to honor no-proxy rules
-            return pc.createProxy("events.pagerduty.com");
-        } catch (RuntimeException e) {
-            return null;
         }
     }
 
