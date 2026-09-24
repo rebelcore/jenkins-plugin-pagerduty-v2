@@ -72,7 +72,7 @@
 
     <!-- The share of lines the tests must cover, checked by `verify`. Start
          where the suite actually is and raise it; never lower it. -->
-    <coverage.floor>0.66</coverage.floor>
+    <coverage.floor>0.95</coverage.floor>
 
     <!-- Shared by every Rebel Media Java project, Fabric mods included. -->
     <palantir-java-format.version>2.98.0</palantir-java-format.version>
