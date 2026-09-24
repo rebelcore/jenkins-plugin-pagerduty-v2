@@ -16,6 +16,7 @@ release notes from pull request labels, not here.
 
 * [CHANGE] Requires Jenkins 2.568.1 or newer (was 2.541.1).
 * [CHANGE] Releases attach `pagerduty-v2-<version>.hpi`, the same file as `pagerduty-v2.hpi`, and `sha256sums.txt`. The `.jpi` copy and `checksums.sha256` are no longer published.
+* [BUGFIX] Security: builds that triggered an event under 1.0.0 still held the routing key in their `build.xml`. Each such build is now rewritten without it the first time it loads. If you ran 1.0.0, rotate the integration key if copies of `JENKINS_HOME`, such as backups, may have been exposed.
 
 ## 1.1.0 / 2026-04-28
 

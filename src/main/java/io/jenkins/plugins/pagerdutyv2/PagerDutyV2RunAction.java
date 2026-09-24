@@ -16,6 +16,9 @@ package io.jenkins.plugins.pagerdutyv2;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.Run;
+import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import jenkins.model.RunAction2;
 
 /**
@@ -26,7 +29,15 @@ import jenkins.model.RunAction2;
  * — it is a secret and must be resolved from credentials at send time.
  */
 public final class PagerDutyV2RunAction implements RunAction2 {
+    private static final Logger LOGGER = Logger.getLogger(PagerDutyV2RunAction.class.getName());
+
     private transient Run<?, ?> owner;
+
+    /**
+     * Set by {@link #readResolve()} when it dropped a legacy body, so that {@link #onLoad} writes the
+     * build record again without it.
+     */
+    private transient boolean legacyBodyDropped;
 
     private String dedupKey;
     /** JSON-serialized {@code payload} object only — never the full body. */
@@ -36,9 +47,10 @@ public final class PagerDutyV2RunAction implements RunAction2 {
 
     /**
      * Legacy field: full trigger body JSON including {@code routing_key}.
-     * Persisted by older versions; kept here only so XStream can read existing
-     * {@code build.xml} files. Migrated to {@link #payloadJson} on first read
-     * via {@link #readResolve()}, after which it is cleared.
+     * Persisted by 1.0.0; kept here only so XStream can read those
+     * {@code build.xml} files. {@link #readResolve()} moves the payload to
+     * {@link #payloadJson} and clears it, and {@link #onLoad} then saves the
+     * build so the routing key is gone from disk as well as from memory.
      */
     @Deprecated
     private String triggerBodyJson;
@@ -57,6 +69,16 @@ public final class PagerDutyV2RunAction implements RunAction2 {
     @Override
     public void onLoad(Run<?, ?> r) {
         this.owner = r;
+        if (legacyBodyDropped) {
+            // Until the build is saved, its build.xml still holds the routing key that 1.0.0
+            // wrote, and nothing else would save an old, finished build again.
+            legacyBodyDropped = false;
+            try {
+                r.save();
+            } catch (IOException | RuntimeException e) {
+                LOGGER.log(Level.WARNING, "Could not rewrite " + r + " to remove the routing key 1.0.0 stored", e);
+            }
+        }
     }
 
     public @NonNull String getDedupKey() {
@@ -85,10 +107,13 @@ public final class PagerDutyV2RunAction implements RunAction2 {
      */
     @SuppressWarnings("deprecation")
     protected Object readResolve() {
-        if (payloadJson == null && triggerBodyJson != null) {
-            payloadJson = LegacyBodyMigrator.extractPayload(triggerBodyJson);
+        if (triggerBodyJson != null) {
+            if (payloadJson == null) {
+                payloadJson = LegacyBodyMigrator.extractPayload(triggerBodyJson);
+            }
+            triggerBodyJson = null;
+            legacyBodyDropped = true;
         }
-        triggerBodyJson = null;
         return this;
     }
 
