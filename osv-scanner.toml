@@ -1,0 +1,15 @@
+# Vulnerabilities that were reviewed and found not to affect this plugin, for
+# OSV-Scanner and the OpenSSF Scorecard check that runs it. Each entry says why,
+# and expires on its review date: after that the finding comes back and has to
+# be looked at again.
+
+[[IgnoredVulns]]
+# CVE-2025-48924: uncontrolled recursion in Commons Lang's ClassUtils.getClass.
+id = "GHSA-j288-q9x7-2f5v"
+ignoreUntil = 2027-03-31
+reason = """\
+commons-lang:commons-lang 2.6 reaches this build only as a provided dependency \
+of jenkins-core: Jenkins supplies it at run time, and this plugin neither ships \
+it in the .hpi nor calls it. No fixed 2.x release exists. The plugin's own \
+dependency on Commons Lang is commons-lang3 3.20.0, which has the fix.\
+"""
