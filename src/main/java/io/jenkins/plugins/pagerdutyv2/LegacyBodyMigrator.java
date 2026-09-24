@@ -22,8 +22,8 @@ import java.util.Map;
 /**
  * One-shot migration helper: extracts the {@code payload} sub-object from a
  * legacy full-body JSON string previously stored by {@link PagerDutyV2RunAction}.
- * Returns {@code "{}"} if extraction fails so resolves degrade gracefully rather
- * than throw at load time.
+ * Returns {@code "{}"} if extraction fails, or if the payload is not a JSON
+ * object, so resolves degrade gracefully rather than throw.
  */
 final class LegacyBodyMigrator {
 
@@ -39,7 +39,9 @@ final class LegacyBodyMigrator {
             @SuppressWarnings("unchecked")
             Map<String, Object> body = MAPPER.readValue(legacyBodyJson, Map.class);
             Object payload = body.get("payload");
-            if (payload == null) {
+            // Resolve reads the payload back as a JSON object, so anything else (a string or a
+            // number in a damaged file) would make every resolve of this incident fail.
+            if (!(payload instanceof Map)) {
                 return "{}";
             }
             return MAPPER.writeValueAsString(payload);

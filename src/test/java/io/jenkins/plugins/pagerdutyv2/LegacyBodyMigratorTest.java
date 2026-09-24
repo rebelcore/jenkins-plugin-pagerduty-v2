@@ -49,4 +49,12 @@ class LegacyBodyMigratorTest {
     void returnsEmptyObjectWhenPayloadFieldMissing() {
         assertEquals("{}", LegacyBodyMigrator.extractPayload("{\"routing_key\":\"x\"}"));
     }
+
+    @Test
+    void returnsEmptyObjectWhenPayloadIsNotAnObject() {
+        // Found by LegacyBodyMigratorFuzzer: resolve reads the payload back as an object.
+        assertEquals("{}", LegacyBodyMigrator.extractPayload("{\"payload\":\"a3f%1\"}"));
+        assertEquals("{}", LegacyBodyMigrator.extractPayload("{\"payload\":7}"));
+        assertEquals("{}", LegacyBodyMigrator.extractPayload("{\"payload\":[{\"summary\":\"x\"}]}"));
+    }
 }
