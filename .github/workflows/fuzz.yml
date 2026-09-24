@@ -1,0 +1,90 @@
+---
+# Fuzzes the code that handles untrusted input, with Jazzer, once a week.
+#
+# The fuzz targets are the *Fuzzer classes under src/test/java. Every normal
+# build replays their stored inputs (FuzzInputsTest); this workflow searches for
+# new failing inputs for five minutes per target. When it finds one, the input
+# is attached to the run: fix the code, then add the input to the target's
+# directory under src/test/resources/io/jenkins/plugins/pagerdutyv2/fuzz/ so
+# every build checks it from then on.
+name: Fuzz
+
+on:
+  schedule:
+    - cron: "0 10 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The Jazzer release, pinned by checksum because it runs code on the runner.
+  # It must match jazzer.version in pom.xml; the first step checks that.
+  JAZZER_VERSION: "0.30.0"
+  JAZZER_SHA256: "6eeaf0026d75599b07527d93b576593ce847cfca8b337a579971a5a9cdf792d0"
+
+jobs:
+  fuzz:
+    name: Fuzz (${{ matrix.fuzzer }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        fuzzer: [LegacyBodyMigratorFuzzer, PayloadBuilderFuzzer]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the Jazzer release matches pom.xml
+        run: |
+          if ! grep -q "<jazzer.version>${JAZZER_VERSION}</jazzer.version>" pom.xml; then
+            echo "::error::pom.xml's jazzer.version is not ${JAZZER_VERSION}. Update JAZZER_VERSION and JAZZER_SHA256 in this workflow to the same release."
+            exit 1
+          fi
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Compile the fuzz targets and write their classpath
+        run: >-
+          ./mvnw -B -ntp -Drevision=0.0.0-fuzz "-Djava.range=[25,26)" -DskipTests
+          test-compile dependency:build-classpath
+          -Dmdep.includeScope=test -Dmdep.outputFile=target/fuzz-classpath.txt
+
+      - name: Download Jazzer
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/jazzer.tar.gz" \
+            "https://github.com/CodeIntelligenceTesting/jazzer/releases/download/v${JAZZER_VERSION}/jazzer-linux-x86-64.tar.gz"
+          echo "${JAZZER_SHA256}  $RUNNER_TEMP/jazzer.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/jazzer"
+          tar -xzf "$RUNNER_TEMP/jazzer.tar.gz" -C "$RUNNER_TEMP/jazzer"
+
+      - name: Fuzz for five minutes
+        env:
+          FUZZER: ${{ matrix.fuzzer }}
+        run: |
+          mkdir -p target/fuzz-corpus target/fuzz-findings
+          cp -r "src/test/resources/io/jenkins/plugins/pagerdutyv2/fuzz/${FUZZER}/." target/fuzz-corpus/
+          "$RUNNER_TEMP/jazzer/jazzer" \
+            --cp="target/classes:target/test-classes:$(cat target/fuzz-classpath.txt)" \
+            --target_class="io.jenkins.plugins.pagerdutyv2.${FUZZER}" \
+            --reproducer_path=target/fuzz-findings \
+            -max_total_time=300 -artifact_prefix=target/fuzz-findings/ target/fuzz-corpus
+
+      - name: Attach the failing input
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-findings-${{ matrix.fuzzer }}
+          path: target/fuzz-findings/
+          retention-days: 30
