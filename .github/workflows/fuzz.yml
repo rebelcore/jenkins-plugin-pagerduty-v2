@@ -23,8 +23,11 @@ concurrency:
 env:
   # The Jazzer release, pinned by checksum because it runs code on the runner.
   # It must match jazzer.version in pom.xml; the first step checks that.
-  JAZZER_VERSION: "0.30.0"
-  JAZZER_SHA256: "6eeaf0026d75599b07527d93b576593ce847cfca8b337a579971a5a9cdf792d0"
+  # Neither name may start with JAZZER_: Jazzer reads every JAZZER_<OPTION>
+  # variable as that command-line option, so JAZZER_VERSION would be taken as
+  # its --version flag and stop the run.
+  PINNED_JAZZER_VERSION: "0.30.0"
+  PINNED_JAZZER_SHA256: "6eeaf0026d75599b07527d93b576593ce847cfca8b337a579971a5a9cdf792d0"
 
 jobs:
   fuzz:
@@ -44,8 +47,8 @@ jobs:
 
       - name: Check the Jazzer release matches pom.xml
         run: |
-          if ! grep -q "<jazzer.version>${JAZZER_VERSION}</jazzer.version>" pom.xml; then
-            echo "::error::pom.xml's jazzer.version is not ${JAZZER_VERSION}. Update JAZZER_VERSION and JAZZER_SHA256 in this workflow to the same release."
+          if ! grep -q "<jazzer.version>${PINNED_JAZZER_VERSION}</jazzer.version>" pom.xml; then
+            echo "::error::pom.xml's jazzer.version is not ${PINNED_JAZZER_VERSION}. Update PINNED_JAZZER_VERSION and PINNED_JAZZER_SHA256 in this workflow to the same release."
             exit 1
           fi
 
@@ -64,8 +67,8 @@ jobs:
       - name: Download Jazzer
         run: |
           curl -fsSL -o "$RUNNER_TEMP/jazzer.tar.gz" \
-            "https://github.com/CodeIntelligenceTesting/jazzer/releases/download/v${JAZZER_VERSION}/jazzer-linux-x86-64.tar.gz"
-          echo "${JAZZER_SHA256}  $RUNNER_TEMP/jazzer.tar.gz" | sha256sum -c -
+            "https://github.com/CodeIntelligenceTesting/jazzer/releases/download/v${PINNED_JAZZER_VERSION}/jazzer-linux-x86-64.tar.gz"
+          echo "${PINNED_JAZZER_SHA256}  $RUNNER_TEMP/jazzer.tar.gz" | sha256sum -c -
           mkdir -p "$RUNNER_TEMP/jazzer"
           tar -xzf "$RUNNER_TEMP/jazzer.tar.gz" -C "$RUNNER_TEMP/jazzer"
 
