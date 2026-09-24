@@ -1,7 +1,7 @@
 ---
 # Fuzzes the code that handles untrusted input, with Jazzer, once a week.
 #
-# The fuzz targets are the *Fuzzer classes under src/test/java. Every normal
+# The fuzz targets are the *Fuzzer classes under src/fuzz/java. Every normal
 # build replays their stored inputs (FuzzInputsTest); this workflow searches for
 # new failing inputs for five minutes per target. When it finds one, the input
 # is attached to the run: fix the code, then add the input to the target's

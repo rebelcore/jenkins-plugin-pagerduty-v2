@@ -100,9 +100,11 @@ Events go to real PagerDuty, so use a test service's integration key.
 
 Code that handles input nobody controls is fuzzed with
 [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer). The fuzz targets
-are the `*Fuzzer` classes: `LegacyBodyMigratorFuzzer` feeds arbitrary build
-records to the 1.0.0 migration, and `PayloadBuilderFuzzer` arbitrary job names
-and build numbers to the dedup key.
+are the `*Fuzzer` classes in `src/fuzz/java`: `LegacyBodyMigratorFuzzer` feeds
+arbitrary build records to the 1.0.0 migration, and `PayloadBuilderFuzzer`
+arbitrary job names and build numbers to the dedup key. They compile with the
+tests but live outside `src/test`, which the OpenSSF Scorecard check skips as
+test data.
 
 - Every build replays each target's stored inputs, under
   `src/test/resources/io/jenkins/plugins/pagerdutyv2/fuzz/<target>/`, in
