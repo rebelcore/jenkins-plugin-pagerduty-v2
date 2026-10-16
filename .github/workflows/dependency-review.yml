@@ -77,3 +77,8 @@ jobs:
           # the whole thing can be distributed under. That is a decision to make
           # deliberately rather than discover in a dependency bump.
           deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, LGPL-3.0
+          # Checkstyle is LGPL-2.1-or-later, which the list above catches, but it
+          # runs only at build time, as a dependency of maven-checkstyle-plugin,
+          # and is never part of the .hpi. GitHub's own reading of pom.xml lists
+          # it anyway, so without this every Checkstyle bump fails the review.
+          allow-dependencies-licenses: pkg:maven/com.puppycrawl.tools/checkstyle
