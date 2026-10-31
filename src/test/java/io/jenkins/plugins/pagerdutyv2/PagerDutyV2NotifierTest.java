@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import hudson.model.FreeStyleProject;
+import hudson.util.XStream2;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +47,15 @@ class PagerDutyV2NotifierTest {
         assertFalse(n.isUseCustomSummary());
         assertEquals("", n.getCustomSummary());
         assertFalse(n.requiresWorkspace(), "it must run for a build whose agent is gone");
+    }
+
+    @Test
+    void aJobSavedWithoutASeverityTriggersAtError() {
+        // XStream does not run field initialisers: what config.xml leaves out loads as null.
+        PagerDutyV2Notifier n =
+                (PagerDutyV2Notifier) new XStream2().fromXML("<io.jenkins.plugins.pagerdutyv2.PagerDutyV2Notifier/>");
+
+        assertEquals("error", n.getSeverityOnFailure());
     }
 
     @Test

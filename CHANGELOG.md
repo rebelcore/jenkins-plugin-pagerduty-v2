@@ -15,6 +15,7 @@ release notes from pull request labels, not here.
 ## main / unreleased
 
 * [BUGFIX] The Pipeline Syntax page lists the `pagerDutyV2` step's actions and severities in a fixed order, starting with its defaults, `trigger` and `critical`. Every restart of Jenkins used to reorder them, so a new step could start on `resolve` or on any severity.
+* [BUGFIX] A job whose `config.xml` was written without a severity, by hand or by a tool, now triggers at `error`. It used to send no severity, which PagerDuty rejects.
 
 ## 1.2.0 / 2026-09-24
 

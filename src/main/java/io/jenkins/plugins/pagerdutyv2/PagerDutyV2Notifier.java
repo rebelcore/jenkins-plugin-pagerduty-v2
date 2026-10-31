@@ -77,7 +77,9 @@ public final class PagerDutyV2Notifier extends Notifier implements SimpleBuildSt
     public PagerDutyV2Notifier() {}
 
     public @NonNull String getSeverityOnFailure() {
-        return severityOnFailure;
+        // XStream does not run field initialisers, so a config.xml written by hand or by a tool
+        // without this element loads it as null, and PagerDuty rejects a trigger with no severity.
+        return severityOnFailure == null || severityOnFailure.isBlank() ? "error" : severityOnFailure;
     }
 
     @DataBoundSetter
