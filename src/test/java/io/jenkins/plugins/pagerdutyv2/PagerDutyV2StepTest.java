@@ -71,11 +71,15 @@ class PagerDutyV2StepTest {
     }
 
     @Test
-    void theDropdownsOfferEveryActionAndSeverity() {
+    void theDropdownsListTheDefaultsFirstInAFixedOrder() {
         PagerDutyV2Step.DescriptorImpl d = new PagerDutyV2Step.DescriptorImpl();
+        PagerDutyV2Step defaults = new PagerDutyV2Step();
 
-        assertEquals(PagerDutyV2Step.VALID_ACTIONS, Set.copyOf(values(d.doFillActionItems())));
-        assertEquals(PagerDutyV2Step.VALID_SEVERITIES, Set.copyOf(values(d.doFillSeverityItems())));
+        assertEquals(List.of("trigger", "resolve"), values(d.doFillActionItems()));
+        assertEquals(List.of("critical", "error", "warning", "info"), values(d.doFillSeverityItems()));
+        // The Pipeline Syntax page starts a new step on the first option.
+        assertEquals(defaults.getAction(), values(d.doFillActionItems()).get(0));
+        assertEquals(defaults.getSeverity(), values(d.doFillSeverityItems()).get(0));
     }
 
     @Test

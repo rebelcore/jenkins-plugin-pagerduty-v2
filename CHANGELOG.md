@@ -14,6 +14,8 @@ release notes from pull request labels, not here.
 
 ## main / unreleased
 
+* [BUGFIX] The Pipeline Syntax page lists the `pagerDutyV2` step's actions and severities in a fixed order, starting with its defaults, `trigger` and `critical`. Every restart of Jenkins used to reorder them, so a new step could start on `resolve` or on any severity.
+
 ## 1.2.0 / 2026-09-24
 
 * [CHANGE] Requires Jenkins 2.568.1 or newer (was 2.541.1).

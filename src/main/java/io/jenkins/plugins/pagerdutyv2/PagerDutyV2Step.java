@@ -22,6 +22,7 @@ import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import hudson.util.Secret;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -46,8 +47,11 @@ import org.kohsuke.stapler.QueryParameter;
  */
 public final class PagerDutyV2Step extends Step {
 
-    static final Set<String> VALID_ACTIONS = Set.of("trigger", "resolve");
-    static final Set<String> VALID_SEVERITIES = Set.of("critical", "error", "warning", "info");
+    // Lists, each starting with the step's default, because the Pipeline Syntax page lists them in
+    // this order and starts a new step on the first. A Set.of would reorder them every time Jenkins
+    // starts.
+    static final List<String> VALID_ACTIONS = List.of("trigger", "resolve");
+    static final List<String> VALID_SEVERITIES = List.of("critical", "error", "warning", "info");
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
