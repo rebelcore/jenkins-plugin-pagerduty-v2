@@ -184,15 +184,10 @@ Add to `pom.xml`:
 ```
 
 and to the `release` job in `release.yml`, which then also needs
-`packages: write` in its `permissions`:
+`packages: write` in its `permissions`, `server-id: github` under the `with:`
+of its `actions/setup-java` step, and this step after the build:
 
 ```yaml
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-          server-id: github
-
       - name: Publish to GitHub Packages
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
