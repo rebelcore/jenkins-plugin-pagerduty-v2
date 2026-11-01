@@ -7,7 +7,7 @@
     </f:entry>
   </j:if>
 
-  <f:entry title="Service" field="service" required="true">
+  <f:entry title="Service" field="service">
     <j:choose>
       <j:when test="${descriptor.hasServiceChoices()}">
         <f:select />
@@ -29,17 +29,12 @@
     </f:entry>
   </f:optionalBlock>
 
-  <f:entry title="Tags (comma-separated)" field="tags" required="${descriptor.tagsRequired}">
+  <f:entry title="Tags (comma-separated)" field="tags">
     <f:textbox />
   </f:entry>
 
   <f:entry title="Severity (used for trigger events)" field="severityOnFailure">
-    <f:select>
-      <f:option value="critical">critical</f:option>
-      <f:option value="error">error</f:option>
-      <f:option value="warning">warning</f:option>
-      <f:option value="info">info</f:option>
-    </f:select>
+    <f:select />
   </f:entry>
 
   <f:optionalBlock name="includeConsoleLogTail" title="Include console log tail in trigger events" checked="${instance.includeConsoleLogTail}">

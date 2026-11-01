@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -185,6 +186,55 @@ class PagerDutyV2ClientTest {
                 IOException.class,
                 () -> new PagerDutyV2Client(url(), clientLeavingRetriesToThePlugin()).postEvent(Map.of("k", "v")));
         assertEquals(PagerDutyV2Client.MAX_ATTEMPTS, attempts.get());
+    }
+
+    @Test
+    void anAbortWhileWaitingToRetryEndsTheRetries() throws Exception {
+        startServerAnswering(503, "busy");
+        AtomicInteger attempts = new AtomicInteger();
+        // Aborting a build interrupts the thread sending its event; here, as the first 503 arrives.
+        OkHttpClient client = fastClient()
+                .newBuilder()
+                .addInterceptor(chain -> {
+                    attempts.incrementAndGet();
+                    var response = chain.proceed(chain.request());
+                    Thread.currentThread().interrupt();
+                    return response;
+                })
+                .build();
+
+        try {
+            assertThrows(
+                    InterruptedIOException.class,
+                    () -> new PagerDutyV2Client(url(), client).postEvent(Map.of("k", "v")));
+        } finally {
+            Thread.interrupted();
+        }
+        assertEquals(1, attempts.get());
+    }
+
+    @Test
+    void anAbortMidRequestIsNotRetried() throws Exception {
+        startServerAnswering(503, "busy");
+        AtomicInteger attempts = new AtomicInteger();
+        // What Okio does when the thread is interrupted while it reads or writes a connection.
+        OkHttpClient client = fastClient()
+                .newBuilder()
+                .addInterceptor(chain -> {
+                    attempts.incrementAndGet();
+                    Thread.currentThread().interrupt();
+                    throw new InterruptedIOException("interrupted");
+                })
+                .build();
+
+        try {
+            assertThrows(
+                    InterruptedIOException.class,
+                    () -> new PagerDutyV2Client(url(), client).postEvent(Map.of("k", "v")));
+        } finally {
+            Thread.interrupted();
+        }
+        assertEquals(1, attempts.get());
     }
 
     @Test

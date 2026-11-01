@@ -17,12 +17,13 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.EnvVars;
 import hudson.Extension;
-import hudson.Launcher;
+import hudson.model.AbstractProject;
 import hudson.model.Descriptor;
 import hudson.model.Item;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.tasks.BuildStepDescriptor;
+import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Notifier;
 import hudson.tasks.Publisher;
 import hudson.util.FormValidation;
@@ -77,7 +78,9 @@ public final class PagerDutyV2Notifier extends Notifier implements SimpleBuildSt
     public PagerDutyV2Notifier() {}
 
     public @NonNull String getSeverityOnFailure() {
-        return severityOnFailure;
+        // XStream does not run field initialisers, so a config.xml written by hand or by a tool
+        // without this element loads it as null, and PagerDuty rejects a trigger with no severity.
+        return severityOnFailure == null || severityOnFailure.isBlank() ? "error" : severityOnFailure;
     }
 
     @DataBoundSetter
@@ -216,29 +219,29 @@ public final class PagerDutyV2Notifier extends Notifier implements SimpleBuildSt
     /**
      * Nothing here touches the workspace. Saying so lets Jenkins run this post-build action for a
      * build whose agent disconnected, instead of failing it with "no workspace" and marking a green
-     * build FAILURE.
+     * build FAILURE. When the build does have a workspace, {@link SimpleBuildStep} forwards that
+     * variant of {@code perform} to the one below.
      */
     @Override
     public boolean requiresWorkspace() {
         return false;
     }
 
+    /**
+     * Runs only once the previous build has finished. The decision reads earlier builds: their
+     * results, for the consecutive-builds count, and their open incident, to resolve it or to not
+     * open a second one. This is Jenkins' default too, but the default its documentation tells new
+     * plugins to replace with NONE, which here would let two concurrent builds each open an incident.
+     */
+    @Override
+    public BuildStepMonitor getRequiredMonitorService() {
+        return BuildStepMonitor.BUILD;
+    }
+
     @Override
     public void perform(@NonNull Run<?, ?> run, @NonNull EnvVars env, @NonNull TaskListener listener)
             throws InterruptedException, IOException {
         PagerDutyV2Dispatcher.dispatch(run, env, new PagerDutyV2Dispatcher.Config(this), listener);
-    }
-
-    /** Jenkins still calls this variant when the build does have a workspace. */
-    @Override
-    public void perform(
-            @NonNull Run<?, ?> run,
-            @NonNull hudson.FilePath workspace,
-            @NonNull EnvVars env,
-            @NonNull Launcher launcher,
-            @NonNull TaskListener listener)
-            throws InterruptedException, IOException {
-        perform(run, env, listener);
     }
 
     /**
@@ -399,7 +402,7 @@ public final class PagerDutyV2Notifier extends Notifier implements SimpleBuildSt
         }
 
         @Override
-        public boolean isApplicable(Class jobType) {
+        public boolean isApplicable(Class<? extends AbstractProject> jobType) {
             return true;
         }
 
