@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import io.jenkins.plugins.okhttp.api.JenkinsOkHttpClient;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -99,7 +100,8 @@ public final class PagerDutyV2Client {
                 snippet = bodySnippet(resp);
             } catch (IOException io) {
                 lastIo = io;
-                if (attempt == MAX_ATTEMPTS) {
+                // An interrupt, such as the build being aborted, ends the retries too.
+                if (attempt == MAX_ATTEMPTS || Thread.currentThread().isInterrupted()) {
                     throw io;
                 }
                 sleepBackoff(attempt);
@@ -130,7 +132,8 @@ public final class PagerDutyV2Client {
         }
     }
 
-    private static void sleepBackoff(int attempt) {
+    /** Waits before the next attempt. Being interrupted while waiting ends the retries. */
+    private static void sleepBackoff(int attempt) throws InterruptedIOException {
         long base = BASE_BACKOFF_MS * (1L << (attempt - 1));
         long jitter = (long) (base * 0.25);
         long delta = jitter == 0 ? 0 : ThreadLocalRandom.current().nextLong(-jitter, jitter + 1);
@@ -142,6 +145,10 @@ public final class PagerDutyV2Client {
             Thread.sleep(sleep);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
+            InterruptedIOException stop =
+                    new InterruptedIOException("Interrupted while waiting to retry the PagerDuty event");
+            stop.initCause(ie);
+            throw stop;
         }
     }
 }
