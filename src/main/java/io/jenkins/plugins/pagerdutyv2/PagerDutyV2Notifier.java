@@ -23,6 +23,7 @@ import hudson.model.Item;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.tasks.BuildStepDescriptor;
+import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Notifier;
 import hudson.tasks.Publisher;
 import hudson.util.FormValidation;
@@ -223,6 +224,17 @@ public final class PagerDutyV2Notifier extends Notifier implements SimpleBuildSt
     @Override
     public boolean requiresWorkspace() {
         return false;
+    }
+
+    /**
+     * Runs only once the previous build has finished. The decision reads earlier builds: their
+     * results, for the consecutive-builds count, and their open incident, to resolve it or to not
+     * open a second one. This is Jenkins' default too, but the default its documentation tells new
+     * plugins to replace with NONE, which here would let two concurrent builds each open an incident.
+     */
+    @Override
+    public BuildStepMonitor getRequiredMonitorService() {
+        return BuildStepMonitor.BUILD;
     }
 
     @Override

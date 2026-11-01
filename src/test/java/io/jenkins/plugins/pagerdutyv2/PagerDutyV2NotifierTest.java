@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import hudson.model.FreeStyleProject;
+import hudson.tasks.BuildStepMonitor;
 import hudson.util.XStream2;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,10 @@ class PagerDutyV2NotifierTest {
         assertFalse(n.isUseCustomSummary());
         assertEquals("", n.getCustomSummary());
         assertFalse(n.requiresWorkspace(), "it must run for a build whose agent is gone");
+        assertEquals(
+                BuildStepMonitor.BUILD,
+                n.getRequiredMonitorService(),
+                "it reads earlier builds, so they must have finished");
     }
 
     @Test
