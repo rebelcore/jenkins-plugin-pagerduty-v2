@@ -17,7 +17,6 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.EnvVars;
 import hudson.Extension;
-import hudson.Launcher;
 import hudson.model.Descriptor;
 import hudson.model.Item;
 import hudson.model.Run;
@@ -219,7 +218,8 @@ public final class PagerDutyV2Notifier extends Notifier implements SimpleBuildSt
     /**
      * Nothing here touches the workspace. Saying so lets Jenkins run this post-build action for a
      * build whose agent disconnected, instead of failing it with "no workspace" and marking a green
-     * build FAILURE.
+     * build FAILURE. When the build does have a workspace, {@link SimpleBuildStep} forwards that
+     * variant of {@code perform} to the one below.
      */
     @Override
     public boolean requiresWorkspace() {
@@ -241,18 +241,6 @@ public final class PagerDutyV2Notifier extends Notifier implements SimpleBuildSt
     public void perform(@NonNull Run<?, ?> run, @NonNull EnvVars env, @NonNull TaskListener listener)
             throws InterruptedException, IOException {
         PagerDutyV2Dispatcher.dispatch(run, env, new PagerDutyV2Dispatcher.Config(this), listener);
-    }
-
-    /** Jenkins still calls this variant when the build does have a workspace. */
-    @Override
-    public void perform(
-            @NonNull Run<?, ?> run,
-            @NonNull hudson.FilePath workspace,
-            @NonNull EnvVars env,
-            @NonNull Launcher launcher,
-            @NonNull TaskListener listener)
-            throws InterruptedException, IOException {
-        perform(run, env, listener);
     }
 
     /**
