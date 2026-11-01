@@ -17,6 +17,7 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.EnvVars;
 import hudson.Extension;
+import hudson.model.AbstractProject;
 import hudson.model.Descriptor;
 import hudson.model.Item;
 import hudson.model.Run;
@@ -401,7 +402,7 @@ public final class PagerDutyV2Notifier extends Notifier implements SimpleBuildSt
         }
 
         @Override
-        public boolean isApplicable(Class jobType) {
+        public boolean isApplicable(Class<? extends AbstractProject> jobType) {
             return true;
         }
 

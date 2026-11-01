@@ -20,6 +20,7 @@ import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
+import hudson.ExtensionList;
 import hudson.security.ACL;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
@@ -66,8 +67,8 @@ public final class PagerDutyV2GlobalConfiguration extends GlobalConfiguration {
         load();
     }
 
-    public static PagerDutyV2GlobalConfiguration get() {
-        return GlobalConfiguration.all().get(PagerDutyV2GlobalConfiguration.class);
+    public static @NonNull PagerDutyV2GlobalConfiguration get() {
+        return ExtensionList.lookupSingleton(PagerDutyV2GlobalConfiguration.class);
     }
 
     @Override
