@@ -17,14 +17,16 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.model.InvisibleAction;
 
 /**
- * Transient marker added to a {@link hudson.model.Run} once
+ * Marker added to a {@link hudson.model.Run} once
  * {@link PagerDutyV2Notifier#perform} has dispatched (or deliberately skipped)
  * a PagerDuty event for that build.
  *
  * <p>Used by {@link PagerDutyV2RunListener} to avoid double-firing when the
- * publisher already ran. Not persisted: re-firing across a Jenkins restart
- * after a successful publisher run is acceptable; the dedup_key would catch
- * any duplicate at PagerDuty in any case.</p>
+ * publisher already ran. Like every action on a build it is saved in
+ * {@code build.xml}; only its {@link #getReason() reason} is transient. The
+ * listener runs once, as the build finishes, so the stored marker changes
+ * nothing later; the dedup_key would catch any duplicate at PagerDuty in any
+ * case.</p>
  */
 public final class PagerDutyV2HandledAction extends InvisibleAction {
 
