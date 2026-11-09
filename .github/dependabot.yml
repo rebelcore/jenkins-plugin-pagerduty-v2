@@ -27,8 +27,12 @@ updates:
     # The Jenkins baseline (jenkins.version) is a support decision, not a
     # dependency update: it decides which Jenkins installations can run the
     # plugin. It moves by hand, together with the bom-<line>.x artifactId.
+    #
+    # workflow-support is held in pom.xml because its newer releases need a
+    # later Jenkins than the baseline; the comment there says when to remove it.
     ignore:
       - dependency-name: "org.jenkins-ci.main:jenkins-core"
+      - dependency-name: "org.jenkins-ci.plugins.workflow:workflow-support"
     groups:
       maven-minor-patch:
         patterns: ["*"]
