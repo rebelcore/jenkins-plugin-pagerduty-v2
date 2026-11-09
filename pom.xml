@@ -23,7 +23,7 @@
   <parent>
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>plugin</artifactId>
-    <version>6.2236.v12dd4c483242</version>
+    <version>6.2250.va_d01d559a_209</version>
     <relativePath />
   </parent>
 
@@ -76,7 +76,7 @@
 
     <!-- Shared by every Rebel Media Java project, Fabric mods included. -->
     <palantir-java-format.version>2.98.0</palantir-java-format.version>
-    <checkstyle.version>14.3.0</checkstyle.version>
+    <checkstyle.version>14.4.0</checkstyle.version>
 
     <!-- The oldest Jenkins LTS this plugin supports. It decides the Java
          release the plugin is compiled for (the parent reads it from
@@ -190,7 +190,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.6.3</version>
+        <version>3.7.0</version>
         <executions>
           <execution>
             <id>rebel-media-rules</id>
