@@ -113,6 +113,18 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- Held back from the BOM, which moves to 1028 from 7280 on. Only the
+           test-scoped Pipeline plugins pull this in, and they are built against
+           this release. 1028 needs Jenkins 2.568.3, and validate-hpi fails when
+           anything on the classpath, test scope included, needs more than
+           jenkins.version. That is no reason to raise the baseline while
+           nothing the plugin runs with needs it. Remove this, and its ignore in
+           .github/dependabot.yml, when jenkins.version reaches 2.568.3. -->
+      <dependency>
+        <groupId>org.jenkins-ci.plugins.workflow</groupId>
+        <artifactId>workflow-support</artifactId>
+        <version>1015.v785e5a_b_b_8b_22</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
