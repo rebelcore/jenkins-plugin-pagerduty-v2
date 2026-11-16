@@ -231,7 +231,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>flatten-maven-plugin</artifactId>
-        <version>1.8.0</version>
+        <version>1.9.0</version>
         <configuration>
           <flattenMode>resolveCiFriendliesOnly</flattenMode>
           <updatePomFile>true</updatePomFile>
@@ -328,7 +328,7 @@
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
-        <version>3.10.4</version>
+        <version>3.11.0</version>
         <configuration combine.self="override">
           <java>
             <includes>
